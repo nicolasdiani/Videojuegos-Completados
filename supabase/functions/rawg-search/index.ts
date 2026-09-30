@@ -8,6 +8,13 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
+// clave pública del proyecto: la legacy "anon" o, en proyectos nuevos, la publishable por defecto
+function publicKey(): string {
+  const anon = Deno.env.get('SUPABASE_ANON_KEY');
+  if (anon) return anon;
+  try { return JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') ?? '{}').default ?? ''; } catch { return ''; }
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
@@ -15,7 +22,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   // ¿quién llama? — mismo control que el resto de la web: logueado + invitado
-  const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+  const sb = createClient(Deno.env.get('SUPABASE_URL')!, publicKey(), {
     global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } }
   });
   const { data: user } = await sb.auth.getUser();

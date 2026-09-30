@@ -619,6 +619,7 @@
     const prio = src && src.priority === 'alta' ? 'alta' : 'normal';
     $$('input[name="f_prio"]').forEach(r => { r.checked = r.value === prio; });
     $('#noteLabel').textContent = mode === 'wish' ? 'Nota' : 'Comentario';
+    $('#noteToggleText').textContent = mode === 'wish' ? 'Añadir nota' : 'Añadir comentario';
     $('#f_note').placeholder = mode === 'wish' ? 'Por qué lo quieres jugar, quién te lo recomendó…' : 'Lo que te pareció…';
     modalExtra = src ? { mc: src.mc || 0, rawgSlug: src.rawgSlug || '', releaseYear: src.releaseYear || '' } : {};
     extraFromAutofill = false;
@@ -640,6 +641,7 @@
     const g = id ? games.find(x => x.id === id) : null;
     fillForm('done', g, g ? 'Editar juego' : 'Añadir juego');
     $('#f_note').value = g ? (g.note || '') : '';
+    setNoteOpen(!!$('#f_note').value);
     setTimeout(() => $('#f_title').focus(), 60);
   }
 
@@ -650,6 +652,7 @@
     const w = id ? wishlist.find(x => x.id === id) : null;
     fillForm('wish', w, w ? 'Editar pendiente' : 'Añadir a wishlist');
     $('#f_note').value = w ? (w.note || '') : '';
+    setNoteOpen(!!$('#f_note').value);
     setTimeout(() => $('#f_title').focus(), 60);
   }
 
@@ -661,7 +664,14 @@
     completingWish = w;
     fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Completado!');
     $('#f_note').value = '';
+    setNoteOpen(false);
     setTimeout(() => $('#f_hours').focus(), 60);
+  }
+
+  // el comentario se muestra abierto si ya tiene texto; si no, queda el botón "+ Añadir…"
+  function setNoteOpen(open) {
+    $('#noteWrap').hidden = !open;
+    $('#btnNoteToggle').setAttribute('aria-expanded', String(open));
   }
 
   function closeModal() {
@@ -695,8 +705,8 @@
     if (url) {
       box.innerHTML = `<img src="${escapeAttr(url)}" alt="" onerror="this.style.display='none'">`;
     } else {
-      const title = $('#f_title').value.trim() || 'Juego';
-      box.innerHTML = `<div class="cover-gen" style="${genCoverStyle(title)};position:absolute;inset:0;"><div class="gtitle" style="font-size:14px">${escapeHTML(title)}</div></div>`;
+      const title = $('#f_title').value.trim() || '?';
+      box.innerHTML = `<div class="cover-gen" style="${genCoverStyle(title)};position:absolute;inset:0;"><div class="gmono">${escapeHTML(monogram(title))}</div></div>`;
     }
   }
 
@@ -948,18 +958,34 @@
     $('#btnCloseSettings2').addEventListener('click', closeSettings);
     $('#settingsBackdrop').addEventListener('click', e => { if (e.target.id === 'settingsBackdrop') closeSettings(); });
 
-    // subir imagen -> se reduce y se sube al guardar
-    $('#f_file').addEventListener('change', e => {
-      const file = e.target.files[0];
-      e.target.value = '';
-      if (!file) return;
-      shrinkImage(file).then(blob => {
-        clearPendingCover();
-        pendingCover = { blob, url: URL.createObjectURL(blob) };
-        $('#f_cover').value = '';
-        syncCoverPreview();
-      }).catch(() => toast('No se pudo leer la imagen'));
+    // flechas de horas (de a 1) y nota (de a 0,1); mantener apretado repite
+    let repeatT = null, repeatI = null;
+    const stopRepeat = () => { clearTimeout(repeatT); clearInterval(repeatI); };
+    const stepOnce = btn => {
+      const box = btn.closest('.stepper');
+      const input = $('#' + box.dataset.for);
+      const cfg = box.dataset;
+      const step = Number(cfg.step), dec = step < 1 ? 1 : 0;
+      const next = Math.min(Number(cfg.max), Math.max(Number(cfg.min), (Number(input.value) || 0) + step * Number(btn.dataset.dir)));
+      input.value = next.toFixed(dec);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    $$('.step-btn').forEach(btn => {
+      btn.addEventListener('click', e => { if (e.detail === 0) stepOnce(btn); }); // teclado
+      btn.addEventListener('pointerdown', e => {
+        e.preventDefault(); stepOnce(btn); stopRepeat();
+        repeatT = setTimeout(() => { repeatI = setInterval(() => stepOnce(btn), 70); }, 400);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stopRepeat));
     });
+    // horas: entero de hasta 3 cifras
+    $('#f_hours').addEventListener('input', () => {
+      const el = $('#f_hours');
+      const clean = el.value.replace(/\D/g, '').slice(0, 3);
+      if (el.value !== clean) el.value = clean;
+    });
+    // comentario plegable
+    $('#btnNoteToggle').addEventListener('click', () => { setNoteOpen(true); $('#f_note').focus(); });
 
     // tema
     $('#btnTheme').addEventListener('click', () => {

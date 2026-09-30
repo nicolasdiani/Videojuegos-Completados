@@ -1177,6 +1177,108 @@ body[data-section="wish"] {
 }
 
 /* ============================================================
+   FORMULARIO — carátula junto al nombre, horas y nota compactas
+   ============================================================ */
+.form-top { position: relative; display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+.form-top .cover-preview { width: 96px; flex: none; box-shadow: 3px 3px 0 var(--shadow-col); }
+.form-top .field-search { flex: 1; min-width: 0; margin-bottom: 0; position: static; }
+.form-top .hint:empty { display: none; }
+.form-top .hint { margin-top: 6px; }
+.form-mc { margin-top: 10px; }
+.form-mc .mc-badge { height: 36px; }
+.form-mc .mc-badge .mc-m { width: 30px; font-size: 20px; }
+.form-mc .mc-badge .mc-score { min-width: 40px; font-size: 20px; }
+.form-top .autocomplete { top: calc(100% + 6px); }
+.modal .autofill-info { margin: 0 0 12px; }
+
+/* horas y nota: dos cajas iguales */
+.score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.score-row .field { margin-bottom: 8px; }
+.stepper {
+  display: flex; align-items: stretch; height: 58px;
+  border: var(--bw) solid var(--line); border-radius: var(--r-sm); overflow: hidden;
+  background: var(--paper-2); box-shadow: 3px 3px 0 var(--shadow-col);
+}
+.stepper.rating { background: var(--accent); }
+.stepper input[type="number"], .stepper #f_hours {
+  flex: 1 1 0; min-width: 0; width: 0; max-width: none; margin: 0;
+  height: 100% !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+  background: none !important; box-shadow: none !important; outline: none !important;
+  font-family: var(--font-display); font-weight: 400; font-size: 30px; letter-spacing: .01em;
+  text-align: center; color: var(--text); -moz-appearance: textfield;
+}
+.stepper.rating input[type="number"] { color: #0B0B0C; }
+.stepper #f_hours::placeholder { font-family: var(--font-display); font-size: 30px; color: var(--muted); opacity: .5; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper:has(input:focus-visible) { outline: 4px solid #FFD23F; outline-offset: 3px; box-shadow: 0 0 0 3px #0B0B0C; }
+.step-btn {
+  flex: none; width: 44px; display: grid; place-items: center; padding: 0;
+  background: transparent; border: 0; color: var(--text); cursor: pointer; touch-action: manipulation;
+}
+.stepper .step-btn.minus { border-right: 2.5px solid var(--line); }
+.stepper .step-btn.plus { border-left: 2.5px solid var(--line); }
+.stepper.rating .step-btn { color: #0B0B0C; }
+.step-btn svg { width: 18px; height: 18px; }
+.step-btn:active { background: color-mix(in srgb, var(--line) 18%, transparent); }
+
+/* deslizador de la nota, a lo ancho */
+.rating-slide { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; }
+.rating-slide input[type="range"] { flex: 1; min-width: 0; height: 40px; accent-color: var(--accent); }
+
+/* comentario plegable */
+.note-field { margin-bottom: 0; }
+.note-toggle {
+  background: none; border: 0; padding: 8px 0; min-height: 44px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--text);
+  text-decoration: underline; text-decoration-color: var(--accent-2); text-decoration-thickness: 3px; text-underline-offset: 5px;
+}
+.note-toggle[aria-expanded="true"] { display: none; }
+#noteWrap textarea { min-height: 70px; }
+
+@media (max-width: 640px) {
+  .modal .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .form-top .cover-preview { width: 86px; }
+  /* "Borrar" como ícono en la misma fila: el formulario de editar entra sin scroll */
+  .modal-foot .btn-danger { order: -1; flex: none; width: 52px; padding: 0; margin: 0; font-size: 0; gap: 0; justify-content: center; }
+  .modal-foot .btn-danger .icon-sm { width: 20px; height: 20px; }
+  .modal-foot { flex-wrap: nowrap; }
+  .modal .field { margin-bottom: 10px; }
+}
+
+/* formulario en teléfonos angostos: más ancho útil, flechas finas, número que entra */
+@media (max-width: 430px) {
+  .modal-backdrop { padding: 10px; }
+  .modal { max-height: calc(100dvh - 20px); }
+  .modal-head { padding: 12px 16px 10px; }
+  .modal-body { padding: 12px 16px; }
+  .modal-foot { padding: 12px 16px 14px; gap: 8px; }
+  .stepper input[type="number"], .stepper #f_hours, .stepper #f_hours::placeholder { font-size: 26px; }
+  .modal-foot .btn-secondary, .modal-foot .btn-primary { font-size: 14px; padding: 0 8px; letter-spacing: 0; }
+}
+/* flechas de 44px; solo en pantallas de menos de 360px bajan a 40 para que entre "10.0" */
+@media (max-width: 359px) {
+  .step-btn { width: 40px; }
+  .stepper input[type="number"], .stepper #f_hours, .stepper #f_hours::placeholder { font-size: 22px; }
+}
+/* carátula generada en el formulario: iniciales, como en las tarjetas */
+.cover-preview .cover-gen .gmono { font-size: 34px; }
+/* teléfonos bajos (iPhone SE, Android chicos): espaciado compacto para no scrollear */
+@media (max-width: 430px) and (max-height: 760px) {
+  .modal-head h3 { font-size: 22px; }
+  .modal .field { margin-bottom: 8px; }
+  .modal .field label { margin-bottom: 5px; font-size: 13px; }
+  .modal .field input[type="text"], .modal .field select { height: 44px; }
+  .form-top { margin-bottom: 8px; }
+  .form-top .cover-preview { width: 76px; }
+  .form-mc { margin-top: 6px; }
+  .stepper { height: 50px; }
+  .rating-slide { margin: 0 0 4px; }
+  .rating-slide input[type="range"] { height: 30px; }
+  .note-toggle { padding: 4px 0; }
+  .modal-foot .btn-secondary, .modal-foot .btn-primary, .modal-foot .btn-danger { height: 46px; }
+}
+
+/* ============================================================
    FILTROS PLEGABLES (celular)
    ============================================================ */
 /* en la computadora el panel no existe como caja: los filtros siguen en la fila de siempre */

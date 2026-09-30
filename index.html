@@ -180,16 +180,22 @@
         </button>
       </div>
       <div class="modal-body">
-        <div class="field field-search">
-          <label for="f_title">Nombre del juego <span class="autofill-badge" id="autofillBadge" hidden="">✓ Autocompletado</span></label>
-          <div class="search-input-wrap">
-            <input type="text" id="f_title" placeholder="Escribe para buscar el juego…" autocomplete="off">
-            <div class="search-spin" id="titleSpin" hidden=""></div>
+        <!-- carátula (de RAWG o generada) + nombre del juego -->
+        <div class="form-top">
+          <div class="cover-preview" id="coverPreview" aria-hidden="true"></div>
+          <div class="field field-search">
+            <label for="f_title">Nombre del juego <span class="autofill-badge" id="autofillBadge" hidden="">✓ Autocompletado</span></label>
+            <div class="search-input-wrap">
+              <input type="text" id="f_title" placeholder="Escribe para buscar…" autocomplete="off">
+              <div class="search-spin" id="titleSpin" hidden=""></div>
+            </div>
+            <p class="hint" id="acHint"></p>
+            <div class="form-mc" id="mcField" title="Nota de Metacritic"><span id="mcBadgeSlot"></span></div>
           </div>
           <div class="autocomplete" id="acDropdown" hidden=""></div>
-          <p class="hint" id="acHint"></p>
-          <div class="autofill-info" id="autofillInfo" hidden=""></div>
         </div>
+        <div class="autofill-info" id="autofillInfo" hidden=""></div>
+        <input type="hidden" id="f_cover">
 
         <div class="field-row">
           <div class="field">
@@ -197,7 +203,7 @@
             <select id="f_platform"></select>
           </div>
           <div class="field m-done">
-            <label for="f_date">Año de Finalización</label>
+            <label for="f_date">Año</label>
             <select id="f_date"></select>
           </div>
         </div>
@@ -210,56 +216,42 @@
           </div>
         </div>
 
-        <div class="field hours-field m-done">
-          <label for="f_hours">Horas jugadas</label>
-          <input type="number" id="f_hours" min="0" step="1" placeholder="0">
-        </div>
-
-        <div class="nota-row">
-          <div class="field nota-mine m-done">
+        <!-- horas y nota: mismo tamaño; la nota tiene flechas de a 0,1 y deslizador -->
+        <div class="score-row m-done">
+          <div class="field score">
+            <label for="f_hours">Horas</label>
+            <div class="stepper" data-for="f_hours" data-step="1" data-min="0" data-max="999">
+              <button type="button" class="step-btn minus" data-dir="-1" aria-label="Restar 1 hora"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+              <input type="number" id="f_hours" min="0" max="999" step="1" inputmode="numeric" placeholder="0">
+              <button type="button" class="step-btn plus" data-dir="1" aria-label="Sumar 1 hora"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button>
+            </div>
+          </div>
+          <div class="field score">
             <label for="f_ratingNum">Tu nota</label>
-            <div class="rating-row">
-              <div class="rating-track">
-                <input type="range" id="f_rating" min="0" max="10" step="0.1" value="8" aria-label="Tu nota, de 0 a 10">
-              </div>
-              <div class="rating-val">
-                <input type="number" id="f_ratingNum" min="0" max="10" step="0.1" value="8.0" aria-label="Nota sobre 10"><span class="rating-den">/10</span>
-              </div>
-            </div>
-          </div>
-          <div class="field mc-field" id="mcField" hidden="">
-            <label>Metacritic</label>
-            <div class="mc-show">
-              <span id="mcBadgeSlot"></span>
+            <div class="stepper rating" data-for="f_ratingNum" data-step="0.1" data-min="0" data-max="10">
+              <button type="button" class="step-btn minus" data-dir="-1" aria-label="Bajar la nota 0,1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+              <input type="number" id="f_ratingNum" min="0" max="10" step="0.1" value="8.0" inputmode="decimal">
+              <button type="button" class="step-btn plus" data-dir="1" aria-label="Subir la nota 0,1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button>
             </div>
           </div>
         </div>
-
-        <div class="field">
-          <label>Carátula</label>
-          <div class="cover-pick">
-            <div class="cover-preview" id="coverPreview"></div>
-            <div class="cover-controls">
-              <input type="url" id="f_cover" placeholder="URL de la imagen…" autocomplete="off">
-              <label class="btn-ghost btn-upload" for="f_file">
-                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"></path><path d="M7 9l5-5 5 5M12 4v12"></path></svg>
-                Subir imagen
-              </label>
-              <input type="file" id="f_file" accept="image/*" style="display:none">
-              <p class="hint">Opcional. Si lo dejas vacío se genera una carátula con el título.</p>
-            </div>
-          </div>
+        <div class="rating-slide m-done">
+          <input type="range" id="f_rating" min="0" max="10" step="0.1" value="8" aria-label="Tu nota, de 0 a 10">
         </div>
 
-        <div class="field">
-          <label for="f_note"><span id="noteLabel">Comentario</span> <span style="color:var(--text-faint);font-weight:500">(opcional)</span></label>
-          <textarea id="f_note" placeholder="Lo que te pareció…"></textarea>
+        <!-- comentario: se abre solo si hace falta -->
+        <div class="field note-field">
+          <button type="button" class="note-toggle" id="btnNoteToggle" aria-expanded="false" aria-controls="noteWrap">+ <span id="noteToggleText">Añadir comentario</span></button>
+          <div id="noteWrap" hidden="">
+            <label for="f_note"><span id="noteLabel">Comentario</span> <span style="color:var(--muted);font-weight:500">(opcional)</span></label>
+            <textarea id="f_note" rows="2" placeholder="Lo que te pareció…"></textarea>
+          </div>
         </div>
       </div>
       <div class="modal-foot">
         <button class="btn-secondary" id="btnCancel">Cancelar</button>
         <button class="btn-primary" id="btnSave">Guardar</button>
-        <button class="btn-danger" id="btnDelete" style="display:none">
+        <button class="btn-danger" id="btnDelete" style="display:none" aria-label="Borrar">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"></path></svg>
           Borrar
         </button>

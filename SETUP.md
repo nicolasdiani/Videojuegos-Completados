@@ -44,7 +44,7 @@ Con esto, un email que no está en la lista no llega ni a crear cuenta.
 ## 5. URLs permitidas
 
 **Authentication → URL Configuration**
-- **Site URL**: la dirección donde quede publicada la web (p. ej. `https://<usuario>.github.io/videojuegos-completados/`).
+- **Site URL**: la dirección donde quede publicada la web: `https://nicolasdiani.github.io/Videojuegos-Completados/`.
 - **Redirect URLs**: agrega esa misma y `http://localhost:5173/` (para probar en la PC).
 
 ## 6. Conectar la web

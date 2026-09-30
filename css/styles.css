@@ -928,11 +928,6 @@ a { color: inherit; text-decoration: none; }
   .masthead { padding: 24px 0 6px; }
   .masthead h2 { font-size: clamp(44px, 15vw, 86px); }
 
-  /* stats: 2 arriba + 1 ancha abajo */
-  .stats { grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 26px; }
-  .stat { padding: 15px 16px; }
-  .stats .stat:nth-child(3) { grid-column: 1 / -1; }
-  .stat .value { font-size: clamp(34px, 9vw, 46px); }
 
   .add-cta { height: 54px; font-size: 17px; padding: 0 22px 0 18px; }
 
@@ -959,11 +954,6 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 430px) {
   :root { --card-min: 150px; }
   .masthead h2 { font-size: clamp(38px, 16vw, 70px); }
-  .stats { grid-template-columns: 1fr; }
-  .stats .stat:nth-child(3) { grid-column: auto; }
-  .stat { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 16px; }
-  .stat .label { margin: 0; }
-  .stat .value { margin-top: 0; }
   /* filtros: 1 por fila (evita desbordes del menú) */
   .select-wrap, .btn-reset { flex: 1 1 100%; }
   .cover-pick { gap: 12px; }
@@ -1402,6 +1392,27 @@ body[data-section="wish"] {
 }
 @media (max-width: 430px) {
   .masthead h2 { font-size: min(14.5vw, 64px); }
+}
+
+/* estadísticas en el celular: tres en fila, número arriba y etiqueta en dos líneas debajo */
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 26px; }
+  .stats .stat:nth-child(3) { grid-column: auto; }
+  .stat {
+    display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-end;
+    gap: 10px; padding: 14px 4px 12px; text-align: center; min-width: 0;
+  }
+  .stat .label {
+    margin: 0; color: var(--text); font-size: 13px; line-height: 1.15; letter-spacing: 0;
+    hyphens: manual; overflow-wrap: normal; max-width: 100%;
+  }
+  .stat .label span { display: block; }
+  .stat .value { margin: 0; font-size: clamp(24px, 8.2vw, 34px); max-width: 100%; white-space: nowrap; }
+}
+/* teléfonos angostos (≤ 370 px): letra un punto más chica para que "TERMINADOS" entre en su línea */
+@media (max-width: 370px) {
+  .stat { padding: 12px 4px 10px; gap: 8px; }
+  .stat .label { font-size: 12px; }
 }
 
 /* ============================================================

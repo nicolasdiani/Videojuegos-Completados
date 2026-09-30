@@ -299,12 +299,21 @@
   }
 
   /* ---------- render: stats ---------- */
+  // en el celular la segunda palabra baja de línea (ver .stat .label span); \u00AD = guion suave
+  const STAT_LABEL = {
+    terminados: 'Juegos <span>termi\u00ADnados</span>',
+    horas: 'Horas <span>jugadas</span>',
+    media: 'Nota <span>media</span>',
+    pendientes: 'Juegos <span>pendien\u00ADtes</span>',
+    ganas: 'Muchas <span>ganas</span>',
+    completados: 'Ya <span>pasados</span>' // como el sello "¡Pasado!" de las tarjetas
+  };
   function renderStats() {
     if (section === 'wish') {
       const pend = wishlist.filter(w => !w.completedGameId);
-      $('#statLabel1').textContent = 'Pendientes';
-      $('#statLabel2').textContent = 'Muchas ganas';
-      $('#statLabel3').textContent = 'Ya completados';
+      $('#statLabel1').innerHTML = STAT_LABEL.pendientes;
+      $('#statLabel2').innerHTML = STAT_LABEL.ganas;
+      $('#statLabel3').innerHTML = STAT_LABEL.completados;
       $('#statCount').textContent = pend.length;
       $('#statHours').textContent = pend.filter(w => w.priority === 'alta').length;
       $('#statAvg').textContent = wishlist.length - pend.length;
@@ -315,9 +324,9 @@
     const hrs = list.reduce((s, g) => s + (Number(g.hours) || 0), 0);
     const rated = list.filter(g => Number(g.rating) > 0);
     const avg = rated.length ? (rated.reduce((s, g) => s + Number(g.rating), 0) / rated.length) : 0;
-    $('#statLabel1').textContent = 'Juegos terminados';
-    $('#statLabel2').textContent = 'Horas jugadas';
-    $('#statLabel3').textContent = 'Nota media';
+    $('#statLabel1').innerHTML = STAT_LABEL.terminados;
+    $('#statLabel2').innerHTML = STAT_LABEL.horas;
+    $('#statLabel3').innerHTML = STAT_LABEL.media;
     $('#statCount').textContent = list.length;
     $('#statHours').innerHTML = `${hrs}<small>h</small>`;
     $('#statAvg').innerHTML = avg ? `${avg.toFixed(1)}<small>/10</small>` : '—';

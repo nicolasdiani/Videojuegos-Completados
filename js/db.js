@@ -69,6 +69,20 @@
     return res.data;
   }
 
+  // Supabase devuelve como máximo 1000 filas por consulta: se piden de a tandas hasta traer todo.
+  // El orden fijo (fecha de alta + id) evita repetir o saltear filas entre tandas.
+  const PAGE = 1000;
+  async function selectAll(table) {
+    const rows = [];
+    for (let from = 0; ; from += PAGE) {
+      const data = must(await sb.from(table).select('*')
+        .order('created_at', { ascending: true }).order('id', { ascending: true })
+        .range(from, from + PAGE - 1));
+      rows.push(...data);
+      if (data.length < PAGE) return rows;
+    }
+  }
+
   let currentUserId = null;
 
   window.VJDB = {
@@ -101,7 +115,7 @@
 
     /* ---------- juegos ---------- */
     async listGames() {
-      return must(await sb.from('games').select('*')).map(fromRow);
+      return (await selectAll('games')).map(fromRow);
     },
     async insertGame(g) {
       return fromRow(must(await sb.from('games').insert(toRow(g)).select().single()));
@@ -123,7 +137,7 @@
 
     /* ---------- wishlist ---------- */
     async listWishlist() {
-      return must(await sb.from('wishlist').select('*')).map(wishFromRow);
+      return (await selectAll('wishlist')).map(wishFromRow);
     },
     async insertWish(w) {
       return wishFromRow(must(await sb.from('wishlist').insert(wishToRow(w)).select().single()));

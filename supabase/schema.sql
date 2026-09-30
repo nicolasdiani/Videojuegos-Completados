@@ -130,6 +130,16 @@ create policy "covers: borrar propias" on storage.objects
   for delete to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = auth.uid()::text);
 
+-- ---------- permisos de la API ----------
+-- Explícitos, por si el proyecto se creó sin "Automatically expose new tables".
+-- Lo que cada usuario puede ver o tocar lo deciden las políticas RLS de arriba.
+revoke all on public.games, public.allowed_emails, public.admins, public.app_config from anon;
+grant select, insert, update, delete on public.games to authenticated;
+grant select, insert, delete on public.allowed_emails to authenticated;
+grant select, insert, update on public.app_config to authenticated;
+revoke execute on function public.is_allowed(), public.is_admin() from anon, public;
+grant execute on function public.is_allowed(), public.is_admin() to authenticated;
+
 -- ============================================================
 -- PRIMER ARRANQUE: reemplazá TU_EMAIL@gmail.com por tu Gmail y corré estas dos líneas.
 -- ============================================================

@@ -280,6 +280,9 @@
   /* paleta candy (controlable por Tweaks) */
   --accent: #25D6E8;     /* cian turquesa */
   --accent-2: #FF54C6;   /* rosa magenta */
+  --score-high: #66CC33;  /* nota 7.5–10 */
+  --score-mid: #FFCC33;   /* nota 5–7.4 */
+  --score-low: #FF6874;   /* nota menor a 5 */
   --yellow: #FFD23F;
   --lime: #4FE08A;
   --orange: #FF8A3D;
@@ -466,8 +469,6 @@ a { color: inherit; text-decoration: none; }
   -webkit-text-stroke: clamp(2px, 0.45vw, 4px) var(--line);
   paint-order: stroke fill;
 }
-.masthead .subtitle { color: var(--text); font-size: 20px; font-weight: 800; margin-top: 26px; text-transform: uppercase; letter-spacing: .02em; }
-.masthead .subtitle span { font-size: 24px; background: var(--yellow); color: #0B0B0C; padding: 3px 14px; border: 3px solid var(--line); border-radius: var(--r-pill); display: inline-block; margin-right: 4px; }
 
 /* year tabs */
 .year-tabs { display: flex; gap: 0; background: var(--paper); border: var(--bw) solid var(--line); padding: 5px; border-radius: var(--r-pill); box-shadow: 4px 4px 0 var(--shadow-col); }
@@ -622,9 +623,10 @@ a { color: inherit; text-decoration: none; }
   transform: rotate(-6deg); background: var(--yellow);
 }
 .rate-chip .icon-sm { stroke: none; width: 14px; height: 14px; }
-.rate-chip.high { background: var(--lime); }
-.rate-chip.mid { background: var(--yellow); }
-.rate-chip.low { background: var(--orange); }
+/* color de la nota, como Metacritic (mismos tonos que la ficha "m") */
+.rate-chip.high, .t10-score.high, .stepper.rating.high { background: var(--score-high); }
+.rate-chip.mid, .t10-score.mid, .stepper.rating.mid { background: var(--score-mid); }
+.rate-chip.low, .t10-score.low, .stepper.rating.low { background: var(--score-low); }
 
 /* banda de info */
 .card-info { padding: 13px 14px 15px; background: var(--paper); text-align: center; }
@@ -922,8 +924,6 @@ a { color: inherit; text-decoration: none; }
 
   .masthead { padding: 24px 0 6px; }
   .masthead h2 { font-size: clamp(44px, 15vw, 86px); }
-  .masthead .subtitle { font-size: 15px; margin-top: 16px; }
-  .masthead .subtitle span { font-size: 19px; padding: 2px 11px; }
 
   /* stats: 2 arriba + 1 ancha abajo */
   .stats { grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 26px; }
@@ -1199,7 +1199,7 @@ body[data-section="wish"] {
   border: var(--bw) solid var(--line); border-radius: var(--r-sm); overflow: hidden;
   background: var(--paper-2); box-shadow: 3px 3px 0 var(--shadow-col);
 }
-.stepper.rating { background: var(--accent); }
+.stepper.rating { background: var(--score-high); }
 .stepper input[type="number"], .stepper #f_hours {
   flex: 1 1 0; min-width: 0; width: 0; max-width: none; margin: 0;
   height: 100% !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
@@ -1276,6 +1276,67 @@ body[data-section="wish"] {
   .rating-slide input[type="range"] { height: 30px; }
   .note-toggle { padding: 4px 0; }
   .modal-foot .btn-secondary, .modal-foot .btn-primary, .modal-foot .btn-danger { height: 46px; }
+}
+
+/* ============================================================
+   MI TOP 10
+   ============================================================ */
+/* botón (ocupa el lugar de "Juegos registrados") */
+.top10-btn {
+  margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
+  height: 52px; padding: 0 14px 0 16px; border-radius: var(--r-pill); cursor: pointer;
+  border: 3px solid var(--line); background: var(--yellow); color: #0B0B0C;
+  box-shadow: 4px 4px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s;
+  font: inherit; text-align: left;
+}
+.top10-btn:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--shadow-col); }
+.top10-btn:active { transform: translate(3px,3px); box-shadow: 0 0 0 var(--shadow-col); }
+.t10-ico .icon { width: 24px; height: 24px; display: block; }
+.t10-text { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
+.t10-label { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+.t10-chev .icon-sm { width: 20px; height: 20px; display: block; }
+
+/* carátula chica (botón y lista) */
+.mini-cover {
+  position: relative; width: 46px; aspect-ratio: 3 / 4; flex: none; overflow: hidden;
+  border: 2.5px solid var(--line); border-radius: 8px; background: var(--paper-2);
+}
+.mini-cover .gmono { font-size: 17px; text-shadow: none; }
+
+/* ventana y lista */
+.top10-modal { max-width: 520px; }
+.top10-sub { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 2px; }
+.top10-list { list-style: none; display: grid; gap: 10px; padding: 2px 4px 6px 0; }
+.top10-empty { text-align: center; padding: 24px 10px; font-weight: 700; color: var(--muted); }
+.t10-row {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; min-height: 72px;
+  border: 3px solid var(--line); border-radius: var(--r-sm); background: var(--paper); color: var(--text);
+  box-shadow: 3px 3px 0 var(--shadow-col); cursor: pointer; font: inherit; text-align: left;
+  transition: transform .12s, box-shadow .12s;
+}
+.t10-row:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow-col); }
+.t10-rank {
+  flex: none; width: 40px; text-align: center; font-family: var(--font-display); font-size: 32px; line-height: 1;
+  color: var(--text); transform: skewX(-6deg);
+}
+.t10-rank small { font-family: var(--font-body); font-weight: 900; font-size: 20px; margin-left: 2px; color: var(--accent-2); vertical-align: 4px; }
+.t10-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.t10-title { font-weight: 800; font-size: 15px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.t10-meta { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.t10-score {
+  flex: none; min-width: 52px; text-align: center; padding: 6px 8px; border-radius: 10px;
+  font-family: var(--font-display); font-size: 22px; line-height: 1; color: #0B0B0C;
+  border: 2.5px solid #0B0B0C; background: var(--yellow);
+}
+
+@media (max-width: 430px) {
+  .top10-btn { margin-top: 18px; }
+  .t10-label { font-size: 18px; }
+  .t10-row { gap: 10px; min-height: 66px; }
+  .t10-rank { width: 34px; font-size: 28px; }
+  .mini-cover { width: 40px; }
+  .t10-title { font-size: 14px; }
+  .t10-score { min-width: 46px; font-size: 20px; }
 }
 
 /* ============================================================

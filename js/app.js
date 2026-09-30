@@ -46,7 +46,11 @@
     if (isNaN(d)) return '—';
     return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   }
-  function rateClass(r) { return r >= 8 ? 'high' : r >= 6 ? 'mid' : 'low'; }
+  // color de la nota, como Metacritic: hasta 4.9 rojo, de 5 a 7.4 amarillo, de 7.5 a 10 verde
+  function rateClass(r) {
+    r = Math.round((Number(r) || 0) * 10) / 10; // una sola cifra decimal: 7.45 guardado como 7.5
+    return r >= 7.5 ? 'high' : r >= 5 ? 'mid' : 'low';
+  }
   function fmtRating(r) { r = Number(r) || 0; return Number.isInteger(r) ? String(r) : r.toFixed(1); }
 
   // distintivo "metascore" estilo Metacritic (sin reproducir su logo oficial):
@@ -516,10 +520,57 @@
     $('#tabCountDone').textContent = games.length;
     $('#tabCountWish').textContent = wishlist.filter(w => !w.completedGameId).length;
     $('#mastTitle').textContent = wish ? 'Wishlist' : 'Completados';
-    $('#mastCount').textContent = wish ? wishlist.filter(w => !w.completedGameId).length : games.filter(inActiveYear).length;
-    $('#mastSub').textContent = wish ? 'Juegos pendientes' : 'Juegos registrados';
+    renderTop10Button();
     $('#addCtaText').textContent = wish ? 'Añadir a wishlist' : 'Añadir juego';
   }
+
+  /* ---------- Mi Top 10 ---------- */
+  // Ordena por nota; los empates comparten puesto (1, 1, 3…) y, si hay empate en el 10, entran todos.
+  // Respeta el filtro de año.
+  function topList() {
+    const rated = games.filter(inActiveYear).filter(g => Number(g.rating) > 0)
+      .sort((a, b) => b.rating - a.rating || (a.title || '').localeCompare(b.title || ''));
+    const out = [];
+    let rank = 0;
+    rated.forEach((g, i) => {
+      if (i === 0 || g.rating !== rated[i - 1].rating) rank = i + 1;
+      if (rank <= 10) out.push({ g, rank });
+    });
+    const perRank = out.reduce((m, x) => (m[x.rank] = (m[x.rank] || 0) + 1, m), {});
+    return out.map(x => ({ ...x, tie: perRank[x.rank] > 1 }));
+  }
+
+  function renderTop10Button() {
+    const top = topList();
+    const btn = $('#btnTop10');
+    btn.disabled = false;
+    btn.setAttribute('aria-label', top.length ? `Mi Top 10: el número 1 es ${top[0].g.title}` : 'Mi Top 10');
+  }
+
+  function openTop10() {
+    const top = topList();
+    $('#top10Sub').textContent = activeYear === 'all' ? 'De todos los años' : 'Año ' + activeYear;
+    const list = $('#top10List');
+    if (!top.length) {
+      list.innerHTML = '<li class="top10-empty">Todavía no hay juegos con nota. Ponle nota a los que terminaste y aparecen acá.</li>';
+    } else {
+      list.innerHTML = top.map(({ g, rank, tie }) => {
+        const medal = rank <= 3 ? ` medal-${rank}` : '';
+        const meta = [g.platform, fmtDate(g.date)].filter(x => x && x !== '—').join(' · ');
+        return `<li class="t10-item rank-${rank}${medal}">
+          <button type="button" class="t10-row" data-id="${g.id}" aria-label="Puesto ${rank}${tie ? ' (empate)' : ''}: ${escapeAttr(g.title)}, nota ${fmtRating(g.rating)}. Editar">
+            <span class="t10-rank" aria-hidden="true">${rank}${tie ? '<small>=</small>' : ''}</span>
+            <span class="mini-cover" aria-hidden="true">${coverHTML(g)}</span>
+            <span class="t10-name"><span class="t10-title">${escapeHTML(g.title)}</span>${meta ? `<span class="t10-meta">${escapeHTML(meta)}</span>` : ''}</span>
+            <span class="t10-score ${rateClass(g.rating)}" aria-hidden="true">${fmtRating(g.rating)}</span>
+          </button>
+        </li>`;
+      }).join('');
+    }
+    openDialog($('#top10Backdrop'));
+    setTimeout(() => $('#btnCloseTop10').focus(), 60);
+  }
+  function closeTop10() { closeDialog($('#top10Backdrop')); }
 
   /* ---------- secciones ---------- */
   function setSection(next, silent) {
@@ -686,18 +737,26 @@
     $('#mcBadgeSlot').innerHTML = mc ? mcBadge(mc) : mcBadgeNA();
   }
 
+  function paintRatingBox() {
+    const box = $('.stepper.rating');
+    box.classList.remove('high', 'mid', 'low');
+    box.classList.add(rateClass($('#f_ratingNum').value));
+  }
   function setRating(v) {
     v = Math.min(10, Math.max(0, Math.round((Number(v) || 0) * 10) / 10));
     $('#f_rating').value = v;
     $('#f_ratingNum').value = v.toFixed(1);
+    paintRatingBox();
   }
   function syncRating() { // desde el deslizador
     $('#f_ratingNum').value = (Number($('#f_rating').value) || 0).toFixed(1);
+    paintRatingBox();
   }
   function syncRatingFromNum(reformat) { // desde la casilla
     let v = Math.min(10, Math.max(0, Number($('#f_ratingNum').value) || 0));
     $('#f_rating').value = v;
     if (reformat) $('#f_ratingNum').value = (Math.round(v * 10) / 10).toFixed(1);
+    paintRatingBox();
   }
   function syncCoverPreview() {
     const url = pendingCover ? pendingCover.url : $('#f_cover').value.trim();
@@ -884,6 +943,17 @@
 
     $('#btnAdd').addEventListener('click', () => section === 'wish' ? openWishModal() : openModal());
 
+    // Mi Top 10: tocar un juego lo abre para editar
+    $('#btnTop10').addEventListener('click', openTop10);
+    $('#btnCloseTop10').addEventListener('click', closeTop10);
+    $('#top10Backdrop').addEventListener('click', e => { if (e.target.id === 'top10Backdrop') closeTop10(); });
+    $('#top10List').addEventListener('click', e => {
+      const row = e.target.closest('.t10-row');
+      if (!row) return;
+      closeTop10();
+      openModal(row.dataset.id);
+    });
+
     // celular: filtros plegados detrás del botón junto al buscador
     $('#btnFilters').addEventListener('click', () => {
       const open = $('.toolbar').classList.toggle('filters-open');
@@ -923,7 +993,7 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         if ($('#confirmBackdrop').classList.contains('open')) { closeConfirm(); return; }
-        closeModal(); closeSettings();
+        closeModal(); closeSettings(); closeTop10();
       }
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && $('#modalBackdrop').classList.contains('open')) saveFromModal();
     });

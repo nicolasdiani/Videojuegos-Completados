@@ -81,7 +81,11 @@
       <div class="masthead-top">
         <div>
           <h2 id="mastTitle">Completados</h2>
-          <p class="subtitle"><span id="mastCount">0</span> <span class="sub-text" id="mastSub">Juegos registrados</span></p>
+          <button type="button" class="top10-btn s-done" id="btnTop10" aria-haspopup="dialog">
+            <span class="t10-ico" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"></path><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"></path></svg></span>
+            <span class="t10-text"><span class="t10-label">Mi Top 10</span></span>
+            <span class="t10-chev" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg></span>
+          </button>
         </div>
       </div>
 
@@ -255,6 +259,24 @@
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"></path></svg>
           Borrar
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MI TOP 10 ============ -->
+  <div class="modal-backdrop" id="top10Backdrop" style="z-index:105">
+    <div class="modal top10-modal" role="dialog" aria-modal="true" aria-labelledby="top10Title">
+      <div class="modal-head">
+        <div>
+          <h3 id="top10Title">Mi Top 10</h3>
+          <p class="top10-sub" id="top10Sub"></p>
+        </div>
+        <button class="icon-btn" id="btnCloseTop10" aria-label="Cerrar">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <ol class="top10-list" id="top10List"></ol>
       </div>
     </div>
   </div>

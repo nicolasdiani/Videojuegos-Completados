@@ -18,7 +18,7 @@
   let wishlist = [];      // juegos pendientes
   let section = 'done';   // 'done' (Completados) | 'wish' (Wishlist)
   let activeYear = 'all';
-  const filters = { q: '', platform: 'all', minRating: 0, priority: 'all', sort: 'date' };
+  const filters = { q: '', platform: 'all', rating: 'all', priority: 'all', sort: 'date' }; // rating: all | high | mid | low (color de la nota)
   let me = null;          // { email, name, avatar, admin }
 
   /* ---------- persistencia (Supabase) ---------- */
@@ -308,6 +308,7 @@
       $('#statCount').textContent = pend.length;
       $('#statHours').textContent = pend.filter(w => w.priority === 'alta').length;
       $('#statAvg').textContent = wishlist.length - pend.length;
+      $('#statAvg').closest('.stat').dataset.band = '';
       return;
     }
     const list = games.filter(inActiveYear);
@@ -320,6 +321,8 @@
     $('#statCount').textContent = list.length;
     $('#statHours').innerHTML = `${hrs}<small>h</small>`;
     $('#statAvg').innerHTML = avg ? `${avg.toFixed(1)}<small>/10</small>` : '—';
+    // la nota media usa el mismo color que las notas (rojo / amarillo / verde)
+    $('#statAvg').closest('.stat').dataset.band = avg ? rateClass(avg.toFixed(1)) : '';
   }
 
   /* ---------- render: filtros de plataforma ---------- */
@@ -344,7 +347,7 @@
   function currentList() {
     let list = games.filter(inActiveYear).filter(matchesText);
     if (filters.platform !== 'all') list = list.filter(g => g.platform === filters.platform);
-    if (filters.minRating > 0) list = list.filter(g => Number(g.rating) >= filters.minRating);
+    if (filters.rating !== 'all') list = list.filter(g => Number(g.rating) > 0 && rateClass(g.rating) === filters.rating);
 
     const s = filters.sort;
     list.sort((a, b) => {
@@ -438,11 +441,12 @@
   }
 
   /* ---------- filtros activos (etiquetas del celular) ---------- */
+  const RATING_LABEL = { high: 'Notas verdes', mid: 'Notas amarillas', low: 'Notas rojas' };
   function activeFilterList() {
     const out = [];
     if (section === 'done' && activeYear !== 'all') out.push({ key: 'year', label: 'Año ' + activeYear });
     if (filters.platform !== 'all') out.push({ key: 'platform', label: filters.platform });
-    if (section === 'done' && filters.minRating > 0) out.push({ key: 'rating', label: 'Nota ' + filters.minRating + '+' });
+    if (section === 'done' && filters.rating !== 'all') out.push({ key: 'rating', label: RATING_LABEL[filters.rating] });
     if (section === 'wish' && filters.priority !== 'all') out.push({ key: 'priority', label: filters.priority === 'alta' ? 'Muchas ganas' : 'Algún día' });
     return out;
   }
@@ -450,7 +454,7 @@
     const list = activeFilterList();
     const x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
     $('#activeFilters').innerHTML = list.map(f =>
-      `<button type="button" class="filter-chip" data-clear="${f.key}" aria-label="Quitar filtro ${escapeAttr(f.label)}">${escapeHTML(f.label)}<span class="x" aria-hidden="true">${x}</span></button>`
+      `<button type="button" class="filter-chip" data-clear="${f.key}"${f.key === 'rating' ? ` data-band="${filters.rating}"` : ''} aria-label="Quitar filtro ${escapeAttr(f.label)}">${escapeHTML(f.label)}<span class="x" aria-hidden="true">${x}</span></button>`
     ).join('');
     const count = $('#filtersCount');
     count.textContent = list.length;
@@ -460,7 +464,7 @@
   function clearFilter(key) {
     if (key === 'year') { activeYear = 'all'; $('#filterYear').value = 'all'; }
     if (key === 'platform') { filters.platform = 'all'; $('#filterPlatform').value = 'all'; }
-    if (key === 'rating') { filters.minRating = 0; $('#filterRating').value = '0'; }
+    if (key === 'rating') { filters.rating = 'all'; $('#filterRating').value = 'all'; }
     if (key === 'priority') { filters.priority = 'all'; $('#filterPriority').value = 'all'; }
     renderAll();
   }
@@ -925,16 +929,16 @@
 
     $('#searchInput').addEventListener('input', e => { filters.q = e.target.value; renderGrid(); });
     $('#filterPlatform').addEventListener('change', e => { filters.platform = e.target.value; renderGrid(); });
-    $('#filterRating').addEventListener('change', e => { filters.minRating = Number(e.target.value); renderGrid(); });
+    $('#filterRating').addEventListener('change', e => { filters.rating = e.target.value; renderGrid(); });
     $('#filterPriority').addEventListener('change', e => { filters.priority = e.target.value; renderGrid(); });
     $$('.section-tab').forEach(t => t.addEventListener('click', () => { if (t.dataset.section !== section) setSection(t.dataset.section); }));
 
     $('#btnReset').addEventListener('click', () => {
-      filters.q = ''; filters.platform = 'all'; filters.minRating = 0; filters.priority = 'all';
+      filters.q = ''; filters.platform = 'all'; filters.rating = 'all'; filters.priority = 'all';
       activeYear = 'all';
       $('#searchInput').value = '';
       $('#filterPlatform').value = 'all';
-      $('#filterRating').value = '0';
+      $('#filterRating').value = 'all';
       $('#filterPriority').value = 'all';
       $('#filterYear').value = 'all';
       renderAll();

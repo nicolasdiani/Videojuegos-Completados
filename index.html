@@ -212,7 +212,7 @@
             <label for="f_ratingNum">Tu nota</label>
             <div class="rating-row">
               <div class="rating-track">
-                <input type="range" id="f_rating" min="0" max="10" step="0.1" value="8">
+                <input type="range" id="f_rating" min="0" max="10" step="0.1" value="8" aria-label="Tu nota, de 0 a 10">
               </div>
               <div class="rating-val">
                 <input type="number" id="f_ratingNum" min="0" max="10" step="0.1" value="8.0" aria-label="Nota sobre 10"><span class="rating-den">/10</span>
@@ -260,7 +260,7 @@
   </div>
 
   <!-- ============ TOAST ============ -->
-  <div class="toast" id="toast">
+  <div class="toast" id="toast" role="status" aria-live="polite">
     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
     <span id="toastMsg"></span>
   </div>

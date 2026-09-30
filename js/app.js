@@ -219,10 +219,10 @@
     if (!me || !me.admin) return;
     $('#f_invite').value = '';
     renderInvites();
-    $('#settingsBackdrop').classList.add('open');
+    openDialog($('#settingsBackdrop'));
     setTimeout(() => $('#f_invite').focus(), 60);
   }
-  function closeSettings() { $('#settingsBackdrop').classList.remove('open'); }
+  function closeSettings() { closeDialog($('#settingsBackdrop')); }
 
   async function renderInvites() {
     const ul = $('#inviteList');
@@ -367,28 +367,25 @@
       : `<div class="cover-gen" style="${genCoverStyle(g.title)}"><div class="gmono">${escapeHTML(monogram(g.title))}</div></div>`;
   }
 
-  function linkActs(title) {
-    return `<a class="act hltb" href="${searchURL('hltb', title)}" target="_blank" rel="noopener" data-stop>${I.clock} HowLongToBeat ${I.ext}</a>
-          <a class="act mc" href="${searchURL('mc', title)}" target="_blank" rel="noopener" data-stop>${I.star} Metacritic ${I.ext}</a>`;
+  function cardLinks(title) {
+    const t = escapeAttr(title);
+    return `<div class="card-links">
+          <a class="card-link hltb" href="${searchURL('hltb', title)}" target="_blank" rel="noopener" data-stop title="HowLongToBeat" aria-label="Buscar ${t} en HowLongToBeat (abre otra pestaña)">${I.clock}</a>
+          <a class="card-link mc" href="${searchURL('mc', title)}" target="_blank" rel="noopener" data-stop title="Metacritic" aria-label="Buscar ${t} en Metacritic (abre otra pestaña)"><span class="cl-m" aria-hidden="true">m</span></a>
+        </div>`;
   }
 
   function cardHTML(g) {
     const rc = rateClass(g.rating);
     const rateChip = g.rating ? `<div class="rate-chip ${rc}">${I.star}${fmtRating(g.rating)}</div>` : '';
 
-    return `<article class="card" data-id="${g.id}" tabindex="0" aria-label="${escapeAttr(g.title)}">
+    return `<article class="card" data-id="${g.id}">
       <div class="card-cover">
         ${coverHTML(g)}
         ${rateChip}
-        <div class="card-actions">
-          ${linkActs(g.title)}
-          <div class="act-row">
-            <button class="act edit-btn" data-edit="${g.id}" data-stop>${I.edit} Editar</button>
-          </div>
-        </div>
       </div>
       <div class="card-info">
-        <div class="card-title">${escapeHTML(g.title)}</div>
+        <h3 class="card-title"><button type="button" class="card-open" aria-label="Editar ${escapeAttr(g.title)}">${escapeHTML(g.title)}</button></h3>
         <div class="card-meta">
           ${g.platform ? `<span class="tag">${escapeHTML(g.platform)}</span>` : ''}
           ${g.mc ? mcBadge(g.mc, true) : ''}
@@ -397,6 +394,7 @@
           ${g.hours ? `<span class="card-hours">${I.clock}${g.hours}h</span><span class="foot-sep"></span>` : ''}
           <span class="card-year">${fmtDate(g.date)}</span>
         </div>
+        ${cardLinks(g.title)}
       </div>
     </article>`;
   }
@@ -408,25 +406,20 @@
       ? `<span class="wish-done-info">${I.check} ${fmtDate(done.date)}${done.rating ? ` · ${I.star} ${fmtRating(done.rating)}` : ''}</span>`
       : `<button type="button" class="wish-complete" data-complete="${w.id}" data-stop>${I.check} Completar</button>`;
 
-    return `<article class="card wish-card${done ? ' is-done' : ''}" data-wid="${w.id}" tabindex="0" aria-label="${escapeAttr(w.title)}${done ? ' (completado)' : ''}">
+    return `<article class="card wish-card${done ? ' is-done' : ''}" data-wid="${w.id}">
       <div class="card-cover">
         ${coverHTML(w)}
         ${prio}
-        ${done ? '<div class="done-stamp">¡Pasado!</div>' : ''}
-        <div class="card-actions">
-          ${linkActs(w.title)}
-          <div class="act-row">
-            <button class="act edit-btn" data-wedit="${w.id}" data-stop>${I.edit} Editar</button>
-          </div>
-        </div>
+        ${done ? '<div class="done-stamp" aria-hidden="true">¡Pasado!</div>' : ''}
       </div>
       <div class="card-info">
-        <div class="card-title">${escapeHTML(w.title)}</div>
+        <h3 class="card-title"><button type="button" class="card-open" aria-label="Editar pendiente ${escapeAttr(w.title)}${done ? ' (completado)' : ''}">${escapeHTML(w.title)}</button></h3>
         <div class="card-meta">
           ${w.platform ? `<span class="tag">${escapeHTML(w.platform)}</span>` : ''}
           ${w.mc ? mcBadge(w.mc, true) : ''}
         </div>
         <div class="card-foot">${foot}</div>
+        ${cardLinks(w.title)}
       </div>
     </article>`;
   }
@@ -520,6 +513,42 @@
     if (url && !coverInUse(url, skip)) DB.removeCover(url);
   }
 
+  /* ---------- diálogos: foco atrapado adentro y devuelto al cerrar ---------- */
+  const dialogs = []; // [{ el, prev, cardSel }]
+  function openDialog(backdrop) {
+    if (!dialogs.some(d => d.el === backdrop)) {
+      const prev = document.activeElement;
+      const card = prev && prev.closest ? prev.closest('.card') : null;
+      const cardSel = card ? (card.dataset.id ? `.card[data-id="${card.dataset.id}"] .card-open` : `.card[data-wid="${card.dataset.wid}"] .card-open`) : null;
+      dialogs.push({ el: backdrop, prev, cardSel });
+    }
+    backdrop.classList.add('open');
+  }
+  function closeDialog(backdrop) {
+    backdrop.classList.remove('open');
+    const i = dialogs.findIndex(d => d.el === backdrop);
+    if (i < 0) return;
+    const { prev, cardSel } = dialogs.splice(i, 1)[0];
+    // si la tarjeta se volvió a dibujar, buscar la nueva; si se borró, ir a "Añadir"
+    const target = (prev && document.contains(prev) && prev !== document.body) ? prev
+      : (cardSel && $(cardSel)) || (prev && prev !== document.body ? $('#btnAdd') : null);
+    if (target) target.focus({ preventScroll: true });
+  }
+  function focusablesIn(el) {
+    return $$('a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])', el)
+      .filter(x => x.offsetParent !== null && !x.closest('[hidden]'));
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !dialogs.length) return;
+    const top = dialogs[dialogs.length - 1].el;
+    const items = focusablesIn(top);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (!top.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
   /* ============================================================
      MODAL (juego completado · pendiente de wishlist · completar pendiente)
      ============================================================ */
@@ -573,7 +602,7 @@
     syncCoverPreview();
     renderMcField();
     $('#btnDelete').style.display = editingId ? 'inline-flex' : 'none';
-    $('#modalBackdrop').classList.add('open');
+    openDialog($('#modalBackdrop'));
   }
 
   function openModal(id) {
@@ -607,7 +636,7 @@
   }
 
   function closeModal() {
-    $('#modalBackdrop').classList.remove('open');
+    closeDialog($('#modalBackdrop'));
     editingId = null; completingWish = null;
     clearPendingCover(); acSeq++;
   }
@@ -685,8 +714,8 @@
     if (ctx.mode === 'done' && !ctx.completingWish) {
       activeYear = (activeYear === 'all' || yearOf(data) === 'Sin fecha') ? activeYear : yearOf(data);
     }
-    closeModal();
     renderAll();
+    closeModal();
   }
 
   async function saveGame(data, ctx) {
@@ -739,10 +768,10 @@
       : kind === 'wish' && item.completedGameId ? ' El juego sigue en Completados.' : '';
     $('#confirmTitle').textContent = kind === 'wish' ? '¿Quitar de la wishlist?' : '¿Borrar este juego?';
     $('#confirmText').innerHTML = `Vas a borrar <b>${escapeHTML(item.title)}</b>.${extra} Esta acción no se puede deshacer.`;
-    $('#confirmBackdrop').classList.add('open');
+    openDialog($('#confirmBackdrop'));
     setTimeout(() => $('#confirmOk').focus(), 60);
   }
-  function closeConfirm() { $('#confirmBackdrop').classList.remove('open'); pendingDelete = null; }
+  function closeConfirm() { closeDialog($('#confirmBackdrop')); pendingDelete = null; }
   async function confirmDelete() {
     if (!pendingDelete) return;
     const { kind, item } = pendingDelete;
@@ -762,9 +791,9 @@
       wishlist.forEach(w => { if (w.completedGameId === item.id) w.completedGameId = null; });
     }
     dropCover(item.cover, item);
+    renderAll();
     closeConfirm();
     closeModal();
-    renderAll();
     toast(kind === 'wish' ? 'Quitado de la wishlist' : 'Juego borrado');
   }
 
@@ -816,23 +845,17 @@
 
     $('#btnAdd').addEventListener('click', () => section === 'wish' ? openWishModal() : openModal());
 
-    // grid: click tarjeta -> editar; botones internos paran propagación
+    // grid: tocar la tarjeta (su botón de título la cubre entera) -> editar;
+    // los accesos de abajo (links, "Completar") llevan data-stop y hacen lo suyo
     const openCard = card => card.dataset.wid ? openWishModal(card.dataset.wid) : openModal(card.dataset.id);
     $('#grid').addEventListener('click', e => {
       if (e.target.closest('[data-stop]')) {
-        const eb = e.target.closest('[data-edit]');
-        const wb = e.target.closest('[data-wedit]');
         const cb = e.target.closest('[data-complete]');
-        if (eb) { e.preventDefault(); openModal(eb.dataset.edit); }
-        if (wb) { e.preventDefault(); openWishModal(wb.dataset.wedit); }
         if (cb) { e.preventDefault(); openCompleteModal(cb.dataset.complete); }
         return;
       }
       const card = e.target.closest('.card');
       if (card) openCard(card);
-    });
-    $('#grid').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.target.closest('[data-stop]')) { const c = e.target.closest('.card'); if (c) openCard(c); }
     });
 
     // modal
@@ -913,15 +936,24 @@
       const oldChev = wrap.querySelector('.chev');
       if (oldChev) oldChev.style.display = 'none';
 
+      // el <select> nativo queda solo como dato: fuera del recorrido con Tab y del lector de pantalla
+      sel.tabIndex = -1;
+      sel.setAttribute('aria-hidden', 'true');
+      const baseLabel = sel.getAttribute('aria-label') || '';
+
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'cs-btn';
       btn.setAttribute('aria-haspopup', 'listbox');
+      btn.setAttribute('aria-expanded', 'false');
       btn.innerHTML = `<span class="cs-label"></span>${csChev}`;
 
       const menu = document.createElement('ul');
       menu.className = 'cs-menu';
       menu.setAttribute('role', 'listbox');
+      menu.id = sel.id + '-menu';
+      if (baseLabel) menu.setAttribute('aria-label', baseLabel);
+      btn.setAttribute('aria-controls', menu.id);
 
       wrap.appendChild(btn);
       wrap.appendChild(menu);
@@ -931,31 +963,57 @@
         const o = sel.options[sel.selectedIndex];
         return o ? o.textContent : '';
       }
-      function syncLabel() { btn.querySelector('.cs-label').textContent = labelText(); }
+      function syncLabel() {
+        const t = labelText();
+        btn.querySelector('.cs-label').textContent = t;
+        btn.setAttribute('aria-label', baseLabel ? `${baseLabel}: ${t}` : t);
+      }
       function buildMenu() {
         menu.innerHTML = [...sel.options].map(o =>
           `<li class="cs-opt" role="option" data-val="${escapeAttr(o.value)}" aria-selected="${o.selected}" tabindex="-1">${csTick}<span>${escapeHTML(o.textContent)}</span></li>`
         ).join('');
       }
-      function open() {
+      function open(focusOption) {
         $$('.select-wrap.cs-open').forEach(w => w !== wrap && w.classList.remove('cs-open'));
         buildMenu();
         wrap.classList.add('cs-open');
         btn.setAttribute('aria-expanded', 'true');
+        if (focusOption) (menu.querySelector('[aria-selected="true"]') || menu.firstElementChild).focus();
       }
-      function close() { wrap.classList.remove('cs-open'); btn.setAttribute('aria-expanded', 'false'); }
-
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        wrap.classList.contains('cs-open') ? close() : open();
-      });
-      menu.addEventListener('click', e => {
-        const opt = e.target.closest('.cs-opt');
-        if (!opt) return;
+      function close(returnFocus) {
+        wrap.classList.remove('cs-open');
+        btn.setAttribute('aria-expanded', 'false');
+        if (returnFocus) btn.focus();
+      }
+      function choose(opt) {
         sel.value = opt.dataset.val;
         sel.dispatchEvent(new Event('change', { bubbles: true }));
         syncLabel();
-        close();
+        close(true);
+      }
+
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        // e.detail === 0: activado con Enter/Espacio → el foco entra a las opciones
+        wrap.classList.contains('cs-open') ? close() : open(e.detail === 0);
+      });
+      btn.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(true); }
+      });
+      menu.addEventListener('click', e => {
+        const opt = e.target.closest('.cs-opt');
+        if (opt) choose(opt);
+      });
+      menu.addEventListener('keydown', e => {
+        const opts = $$('.cs-opt', menu);
+        const i = opts.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') { e.preventDefault(); (opts[i + 1] || opts[i] || opts[0]).focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); (opts[i - 1] || opts[0]).focus(); }
+        else if (e.key === 'Home') { e.preventDefault(); opts[0].focus(); }
+        else if (e.key === 'End') { e.preventDefault(); opts[opts.length - 1].focus(); }
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (opts[i]) choose(opts[i]); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); }
+        else if (e.key === 'Tab') close(false);
       });
       sel._cs = { syncLabel };
       syncLabel();
@@ -1053,6 +1111,9 @@
   }
 
   // clave para detectar repetidos y reenlazar pendientes con su juego completado
+  // "1 juego" / "3 juegos"
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
   const gameKey = g => String(g.title || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 4);
   const wishKey = w => String(w.title || '').trim().toLowerCase();
 
@@ -1067,7 +1128,7 @@
       app: 'videojuegos-completados', version: 2, exportedAt: new Date().toISOString(),
       games: cleanGames, wishlist: cleanWish
     }, null, 2));
-    toast(`Exportados ${cleanGames.length} juegos y ${cleanWish.length} pendientes`);
+    toast(`Exportados ${count(cleanGames.length, "juego", "juegos")} y ${count(cleanWish.length, "pendiente", "pendientes")}`);
   }
 
   // carátula subida en la versión anterior (dataURL) -> a Storage
@@ -1110,7 +1171,7 @@
     const skipped = gList.length - freshG.length + wList.length - freshW.length;
     if (!freshG.length && !freshW.length) { toast(skipped ? 'Todo eso ya estaba en tu lista' : 'El archivo está vacío'); return; }
 
-    toast(`Importando ${freshG.length + freshW.length} juegos…`);
+    toast(`Importando ${count(freshG.length + freshW.length, "juego", "juegos")}…`);
     try {
       const readyG = [];
       for (const g of freshG) readyG.push({ ...cleanImported(g), cover: await importCover(g.cover) });
@@ -1126,8 +1187,8 @@
       console.error(e); renderAll(); toast('No se pudo importar todo — revisa tu conexión'); return;
     }
     renderAll();
-    const parts = [freshG.length && `${freshG.length} juegos`, freshW.length && `${freshW.length} pendientes`].filter(Boolean).join(' y ');
-    toast(`Importados ${parts}` + (skipped ? ` (${skipped} repetidos omitidos)` : ''));
+    const parts = [freshG.length && count(freshG.length, "juego", "juegos"), freshW.length && count(freshW.length, "pendiente", "pendientes")].filter(Boolean).join(' y ');
+    toast(`Importados ${parts}` + (skipped ? ` (${count(skipped, "repetido omitido", "repetidos omitidos")})` : ''));
   }
 
   // reduce la imagen a máx. 800px de lado y la pasa a JPEG

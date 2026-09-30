@@ -1156,6 +1156,8 @@ body[data-section="wish"] {
 .prio-opt input { position: absolute; opacity: 0; pointer-events: none; }
 .prio-opt .icon-sm { width: 17px; height: 17px; }
 .prio-opt:has(input:checked) { background: var(--accent); color: #0B0B0C; transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--shadow-col); }
+/* "Muchas ganas" marcado usa el mismo naranja que el cartel de las tarjetas */
+.prio-opt:has(input[value="alta"]:checked) { background: var(--orange); }
 .prio-opt:has(input:focus-visible) { box-shadow: 4px 4px 0 var(--accent-2); }
 
 @media (max-width: 640px) {

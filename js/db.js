@@ -111,13 +111,11 @@
       await sb.storage.from(BUCKET).remove([path]); // si falla queda un archivo huérfano, no es grave
     },
 
-    /* ---------- configuración compartida ---------- */
-    async getConfig(key) {
-      const row = must(await sb.from('app_config').select('value').eq('key', key).maybeSingle());
-      return row ? row.value : '';
-    },
-    async setConfig(key, value) {
-      must(await sb.from('app_config').upsert({ key, value }));
+    /* ---------- búsqueda en RAWG (Edge Function con la clave como secreto) ---------- */
+    async searchGames(q) {
+      const { data, error } = await sb.functions.invoke('rawg-search', { body: { q } });
+      if (error) throw error;
+      return data.results || [];
     },
 
     /* ---------- invitados (solo admin) ---------- */

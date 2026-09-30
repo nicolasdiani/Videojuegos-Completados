@@ -15,10 +15,12 @@ Se quitó el panel de "Tweaks" (React + Babel), que solo funcionaba dentro del e
 index.html                 marcado de la app (incluye la pantalla de acceso)
 css/styles.css             estilos (sistema "candy / neo-brutalista", tema claro/oscuro)
 js/config.js               URL y anon key de Supabase
-js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invitados, config
+js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invitados, búsqueda RAWG
 js/app.js                  lógica de la interfaz (JS vanilla)
 fonts/                     Anton + Archivo (woff2, servidas localmente)
+privacidad.html            política de privacidad y condiciones (la pide Google OAuth)
 supabase/schema.sql        tablas, reglas de acceso (RLS), hook de invitados, bucket de carátulas
+supabase/functions/        Edge Function rawg-search (búsqueda con la clave como secreto)
 herramientas/              exportar los datos de la versión anterior (localStorage)
 ```
 
@@ -26,8 +28,9 @@ herramientas/              exportar los datos de la versión anterior (localStor
 
 - **Acceso:** login con Google (Supabase Auth). Solo entran los emails de `allowed_emails`;
   el hook `hook_before_user_created` bloquea el registro del resto y las reglas RLS bloquean sus datos.
-- **Admin:** los emails de la tabla `admins` ven el engranaje: gestionan invitados y la clave de RAWG
-  (compartida en `app_config`, legible solo por invitados).
+- **Admin:** los emails de la tabla `admins` ven el engranaje para gestionar invitados.
+- **Autocompletado:** la app llama a la Edge Function `rawg-search`, que busca en RAWG con el secreto
+  `RAWG_KEY`; la clave nunca llega al navegador y la función solo responde a invitados.
 - **Juegos:** tabla `games`, cada fila con `user_id`; cada usuario solo ve y edita los suyos.
 - **Carátulas subidas:** se reducen a 800px (JPEG) en el navegador y se suben al bucket `covers/<user_id>/`.
 - **Tema claro/oscuro:** preferencia local del navegador.

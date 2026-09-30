@@ -98,7 +98,8 @@ create policy "cada uno sus juegos" on public.games
   using (user_id = auth.uid() and public.is_allowed())
   with check (user_id = auth.uid() and public.is_allowed());
 
--- ---------- configuración compartida (clave de RAWG) ----------
+-- ---------- configuración compartida ----------
+-- (ya no guarda la clave de RAWG: ahora es el secreto RAWG_KEY de la Edge Function rawg-search)
 create table if not exists public.app_config (
   key   text primary key,
   value text not null default ''

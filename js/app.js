@@ -17,7 +17,6 @@
   let activeYear = 'all';
   const filters = { q: '', platform: 'all', minRating: 0, sort: 'date' };
   let me = null;          // { email, name, avatar, admin }
-  let rawgKey = '';       // clave compartida, se lee de la base al entrar
 
   /* ---------- persistencia (Supabase) ---------- */
   async function loadGames() {
@@ -87,17 +86,7 @@
   /* ============================================================
      RAWG — base de datos de videojuegos (autocompletado)
      ============================================================ */
-  const getKey = () => rawgKey;
-
-  // aviso cuando no hay clave: el admin puede configurarla, el resto solo se entera
-  function noKeyHint() {
-    if (!me || !me.admin) {
-      setHint('El autocompletado todavía no está configurado — rellena los datos a mano.');
-      return;
-    }
-    setHint('<span class="link" id="acConnect">Conecta RAWG</span> para autocompletar título, carátula y datos.');
-    const c = $('#acConnect'); if (c) c.onclick = openSettings;
-  }
+  // La búsqueda pasa por la Edge Function "rawg-search" (la clave de RAWG vive en Supabase).
 
   // mapea nombres de plataforma de RAWG a nuestra lista
   const RAWG_PLAT = [
@@ -115,7 +104,7 @@
   }
   const mcClass = m => m >= 80 ? 'high' : m >= 50 ? 'mid' : 'low';
 
-  let acTimer = null, acController = null, acResults = [], acActive = -1;
+  let acTimer = null, acSeq = 0, acResults = [], acActive = -1;
   let modalExtra = {}; // mc, rawgSlug, releaseYear capturados del autofill
 
   function hideAc() { const d = $('#acDropdown'); d.hidden = true; d.innerHTML = ''; acActive = -1; }
@@ -128,38 +117,26 @@
     modalExtra = {};
     clearTimeout(acTimer);
     const q = $('#f_title').value.trim();
-    if (!getKey()) {
-      hideAc();
-      noKeyHint();
-      return;
-    }
     setHint('');
     if (q.length < 2) { hideAc(); return; }
     acTimer = setTimeout(() => acSearch(q), 350);
   }
 
   async function acSearch(q) {
-    if (acController) acController.abort();
-    acController = new AbortController();
+    const seq = ++acSeq; // descarta respuestas de búsquedas viejas
     $('#titleSpin').hidden = false;
     try {
-      const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(getKey())}&search=${encodeURIComponent(q)}&page_size=7`;
-      const r = await fetch(url, { signal: acController.signal });
-      if (r.status === 401) {
-        if (me && me.admin) { setHint('Clave de RAWG no válida. <span class="link" id="acConnect">Revisar →</span>'); const c = $('#acConnect'); if (c) c.onclick = openSettings; }
-        else setHint('El autocompletado no está disponible ahora — rellena los datos a mano.');
-        hideAc(); return;
-      }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      acResults = (data.results || []).filter(g => g.name);
+      const results = await DB.searchGames(q);
+      if (seq !== acSeq) return;
+      acResults = results.filter(g => g.name);
       renderAc();
     } catch (e) {
-      if (e.name === 'AbortError') return;
-      setHint('No se pudo conectar a RAWG — puedes rellenar los datos a mano.');
+      if (seq !== acSeq) return;
+      console.error(e);
+      setHint('El autocompletado no está disponible ahora — rellena los datos a mano.');
       hideAc();
     } finally {
-      $('#titleSpin').hidden = true;
+      if (seq === acSeq) $('#titleSpin').hidden = true;
     }
   }
 
@@ -225,53 +202,15 @@
     sel.value = value;
   }
 
-  /* ---------- ajustes (solo admin): invitados + clave RAWG ---------- */
+  /* ---------- ajustes (solo admin): invitados ---------- */
   function openSettings() {
     if (!me || !me.admin) return;
-    $('#f_key').value = getKey();
-    $('#keyStatus').textContent = '';
-    $('#keyStatus').className = 'key-status';
     $('#f_invite').value = '';
     renderInvites();
     $('#settingsBackdrop').classList.add('open');
     setTimeout(() => $('#f_invite').focus(), 60);
   }
   function closeSettings() { $('#settingsBackdrop').classList.remove('open'); }
-
-  async function saveKey() {
-    const k = $('#f_key').value.trim();
-    const st = $('#keyStatus');
-    st.className = 'key-status';
-    if (k) {
-      st.textContent = 'Comprobando…';
-      try {
-        const r = await fetch(`https://api.rawg.io/api/games?key=${encodeURIComponent(k)}&search=zelda&page_size=1`);
-        if (r.status === 401) { st.textContent = '✗ Clave no válida'; st.className = 'key-status err'; return; }
-        if (!r.ok) { st.textContent = '✗ Error ' + r.status; st.className = 'key-status err'; return; }
-      } catch (e) {
-        st.textContent = '✗ No se pudo conectar con RAWG. Revisa la clave.'; st.className = 'key-status err'; return;
-      }
-    }
-    try {
-      await DB.setConfig('rawg_key', k);
-    } catch (e) {
-      st.textContent = '✗ No se pudo guardar: ' + e.message; st.className = 'key-status err'; return;
-    }
-    rawgKey = k;
-    reflectConnection();
-    st.textContent = k ? '✓ Guardada — ya autocompleta para todos' : 'Clave borrada';
-    st.className = 'key-status ok';
-    setTimeout(closeSettings, 900);
-  }
-
-  function reflectConnection() {
-    const btn = $('#btnSettings');
-    const connected = !!getKey();
-    btn.classList.toggle('connected', connected);
-    let dot = btn.querySelector('.conn-dot');
-    if (!connected && !dot) { dot = document.createElement('span'); dot.className = 'conn-dot'; btn.appendChild(dot); }
-    if (connected && dot) dot.remove();
-  }
 
   async function renderInvites() {
     const ul = $('#inviteList');
@@ -507,7 +446,7 @@
     $('#autofillInfo').hidden = true;
     hideAc();
     clearPendingCover();
-    if (getKey()) setHint(''); else noKeyHint();
+    setHint('');
     syncRating();
     syncCoverPreview();
     renderMcField();
@@ -515,7 +454,7 @@
     $('#modalBackdrop').classList.add('open');
     setTimeout(() => $('#f_title').focus(), 60);
   }
-  function closeModal() { $('#modalBackdrop').classList.remove('open'); editingId = null; clearPendingCover(); }
+  function closeModal() { $('#modalBackdrop').classList.remove('open'); editingId = null; clearPendingCover(); acSeq++; }
 
   function renderMcField() {
     const mc = modalExtra.mc || 0;
@@ -718,7 +657,7 @@
     });
     $('#f_title').addEventListener('blur', () => setTimeout(hideAc, 150));
 
-    // ajustes (admin): invitados + clave RAWG
+    // ajustes (admin): invitados
     $('#btnSettings').addEventListener('click', openSettings);
     $('#btnInvite').addEventListener('click', addInvite);
     $('#f_invite').addEventListener('keydown', e => { if (e.key === 'Enter') addInvite(); });
@@ -728,9 +667,7 @@
     });
     $('#btnCloseSettings').addEventListener('click', closeSettings);
     $('#btnCloseSettings2').addEventListener('click', closeSettings);
-    $('#btnSaveKey').addEventListener('click', saveKey);
     $('#settingsBackdrop').addEventListener('click', e => { if (e.target.id === 'settingsBackdrop') closeSettings(); });
-    $('#f_key').addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
 
     // subir imagen -> se reduce y se sube al guardar
     $('#f_file').addEventListener('change', e => {
@@ -863,13 +800,12 @@
       admin: access.admin
     };
     try {
-      [rawgKey] = await Promise.all([DB.getConfig('rawg_key'), loadGames()]);
+      await loadGames();
     } catch (e) {
       console.error(e); showGate('error'); return;
     }
     renderUser();
     $('#btnSettings').hidden = !me.admin;
-    reflectConnection();
     renderAll();
     hideGate();
   }

@@ -82,6 +82,11 @@ ni se pide en la app. Las claves de RAWG no vencen.
 
 Para cambiar la clave en el futuro: solo editas el secreto `RAWG_KEY`.
 
+## 7c. Wishlist (si creaste el proyecto antes del 30/09/2026)
+
+Supabase → **SQL Editor → New query** → pega [`supabase/migrations/002_wishlist.sql`](supabase/migrations/002_wishlist.sql) → **Run**.
+(Si el proyecto es nuevo no hace falta: `schema.sql` ya incluye la tabla.)
+
 ## 8. Pasar tus juegos de la versión anterior
 
 Los juegos de la versión vieja están guardados en el navegador donde abrías `Videojuegos completados (para enviar).html`.

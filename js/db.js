@@ -38,6 +38,31 @@
     release_year: String(g.releaseYear || '')
   });
 
+  const wishFromRow = r => ({
+    id: r.id,
+    title: r.title,
+    platform: r.platform || '',
+    cover: r.cover || '',
+    note: r.note || '',
+    mc: r.mc || 0,
+    rawgSlug: r.rawg_slug || '',
+    releaseYear: r.release_year || '',
+    priority: r.priority === 'alta' ? 'alta' : 'normal',
+    completedGameId: r.completed_game_id || null,
+    createdAt: r.created_at || ''
+  });
+  const wishToRow = w => ({
+    title: w.title,
+    platform: w.platform || '',
+    cover: w.cover || '',
+    note: w.note || '',
+    mc: Number(w.mc) || 0,
+    rawg_slug: w.rawgSlug || '',
+    release_year: String(w.releaseYear || ''),
+    priority: w.priority === 'alta' ? 'alta' : 'normal',
+    completed_game_id: w.completedGameId || null
+  });
+
   function must(res) {
     if (res.error) throw res.error;
     return res.data;
@@ -93,6 +118,28 @@
     },
     async deleteGame(id) {
       must(await sb.from('games').delete().eq('id', id));
+    },
+
+    /* ---------- wishlist ---------- */
+    async listWishlist() {
+      return must(await sb.from('wishlist').select('*')).map(wishFromRow);
+    },
+    async insertWish(w) {
+      return wishFromRow(must(await sb.from('wishlist').insert(wishToRow(w)).select().single()));
+    },
+    async insertWishes(list) {
+      const out = [];
+      for (let i = 0; i < list.length; i += 200) {
+        const rows = must(await sb.from('wishlist').insert(list.slice(i, i + 200).map(wishToRow)).select());
+        out.push(...rows.map(wishFromRow));
+      }
+      return out;
+    },
+    async updateWish(id, w) {
+      return wishFromRow(must(await sb.from('wishlist').update(wishToRow(w)).eq('id', id).select().single()));
+    },
+    async deleteWish(id) {
+      must(await sb.from('wishlist').delete().eq('id', id));
     },
 
     /* ---------- carátulas subidas ---------- */

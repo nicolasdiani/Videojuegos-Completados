@@ -1,6 +1,6 @@
 # Videojuegos completados
 
-Registro de videojuegos terminados: nota, horas, plataforma, año, carátula y comentario.
+Registro de videojuegos terminados (nota, horas, plataforma, año, carátula y comentario) y wishlist de pendientes.
 Cada usuario tiene su propia lista en la nube; se entra con Google y solo por invitación.
 Autocompletado de datos con la API de [RAWG](https://rawg.io/apidocs).
 
@@ -19,6 +19,7 @@ js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invit
 js/app.js                  lógica de la interfaz (JS vanilla)
 fonts/                     Anton + Archivo (woff2, servidas localmente)
 privacidad.html            política de privacidad y condiciones (la pide Google OAuth)
+supabase/migrations/       cambios de base para proyectos ya creados (002: wishlist)
 supabase/schema.sql        tablas, reglas de acceso (RLS), hook de invitados, bucket de carátulas
 supabase/functions/        Edge Function rawg-search (búsqueda con la clave como secreto)
 herramientas/              exportar los datos de la versión anterior (localStorage)
@@ -32,6 +33,8 @@ herramientas/              exportar los datos de la versión anterior (localStor
 - **Autocompletado:** la app llama a la Edge Function `rawg-search`, que busca en RAWG con el secreto
   `RAWG_KEY`; la clave nunca llega al navegador y la función solo responde a invitados.
 - **Juegos:** tabla `games`, cada fila con `user_id`; cada usuario solo ve y edita los suyos.
+- **Wishlist:** tabla `wishlist` con prioridad (`alta` = "Muchas ganas", `normal` = "Algún día"). Al completar un pendiente se crea
+  el juego en `games` y el pendiente queda enlazado (`completed_game_id`); si se borra ese juego, vuelve a pendiente.
 - **Carátulas subidas:** se reducen a 800px (JPEG) en el navegador y se suben al bucket `covers/<user_id>/`.
 - **Tema claro/oscuro:** preferencia local del navegador.
 

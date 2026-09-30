@@ -5,6 +5,7 @@
   'use strict';
 
   const THEME_KEY = 'vj_tema';
+  const SECTION_KEY = 'vj_seccion';
   const DB = window.VJDB;
 
   const PLATFORMS = [
@@ -14,13 +15,23 @@
 
   /* ---------- estado ---------- */
   let games = [];
+  let wishlist = [];      // juegos pendientes
+  let section = 'done';   // 'done' (Completados) | 'wish' (Wishlist)
   let activeYear = 'all';
-  const filters = { q: '', platform: 'all', minRating: 0, sort: 'date' };
+  const filters = { q: '', platform: 'all', minRating: 0, priority: 'all', sort: 'date' };
   let me = null;          // { email, name, avatar, admin }
 
   /* ---------- persistencia (Supabase) ---------- */
+  // si la tabla de wishlist no existe todavía (falta correr la migración), Completados sigue andando
+  let wishlistReady = true;
   async function loadGames() {
-    games = await DB.listGames();
+    const [g, w] = await Promise.all([
+      DB.listGames(),
+      DB.listWishlist().catch(e => { console.error(e); return null; })
+    ]);
+    games = g;
+    wishlist = w || [];
+    wishlistReady = !!w;
   }
 
   /* ---------- utilidades ---------- */
@@ -258,6 +269,8 @@
     ext: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5M19 5l-8 8M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></svg>',
     edit: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     pad: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4M8 9v4M15 11h.01M18 13h.01"/><rect x="2" y="6" width="20" height="12" rx="5"/></svg>',
+    flame: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.2 1-3.6 2-4.6.3 1.6 1.2 2.6 2.2 2.6C11 8.5 11 5.5 12 3z"/></svg>',
+    check: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
   };
 
@@ -281,33 +294,50 @@
   }
 
   /* ---------- render: stats ---------- */
-  function renderStats(list) {
-    const n = list.length;
+  function renderStats() {
+    if (section === 'wish') {
+      const pend = wishlist.filter(w => !w.completedGameId);
+      $('#statLabel1').textContent = 'Pendientes';
+      $('#statLabel2').textContent = 'Muchas ganas';
+      $('#statLabel3').textContent = 'Ya completados';
+      $('#statCount').textContent = pend.length;
+      $('#statHours').textContent = pend.filter(w => w.priority === 'alta').length;
+      $('#statAvg').textContent = wishlist.length - pend.length;
+      return;
+    }
+    const list = games.filter(inActiveYear);
     const hrs = list.reduce((s, g) => s + (Number(g.hours) || 0), 0);
     const rated = list.filter(g => Number(g.rating) > 0);
     const avg = rated.length ? (rated.reduce((s, g) => s + Number(g.rating), 0) / rated.length) : 0;
-    $('#statCount').textContent = n;
+    $('#statLabel1').textContent = 'Juegos terminados';
+    $('#statLabel2').textContent = 'Horas jugadas';
+    $('#statLabel3').textContent = 'Nota media';
+    $('#statCount').textContent = list.length;
     $('#statHours').innerHTML = `${hrs}<small>h</small>`;
     $('#statAvg').innerHTML = avg ? `${avg.toFixed(1)}<small>/10</small>` : '—';
   }
 
   /* ---------- render: filtros de plataforma ---------- */
   function renderPlatformFilter() {
-    const used = Array.from(new Set(games.map(g => g.platform).filter(Boolean))).sort();
+    const source = section === 'wish' ? wishlist : games;
+    const used = Array.from(new Set(source.map(g => g.platform).filter(Boolean))).sort();
     const sel = $('#filterPlatform');
-    const cur = sel.value || 'all';
+    const cur = filters.platform;
     sel.innerHTML = `<option value="all">Todas las plataformas</option>` +
-      used.map(p => `<option value="${p}">${p}</option>`).join('');
-    sel.value = used.includes(cur) || cur === 'all' ? cur : 'all';
+      used.map(p => `<option value="${escapeAttr(p)}">${escapeHTML(p)}</option>`).join('');
+    filters.platform = used.includes(cur) ? cur : 'all';
+    sel.value = filters.platform;
   }
 
   /* ---------- render: grid ---------- */
+  function matchesText(g) {
+    if (!filters.q) return true;
+    const q = filters.q.toLowerCase();
+    return (g.title || '').toLowerCase().includes(q) || (g.platform || '').toLowerCase().includes(q);
+  }
+
   function currentList() {
-    let list = games.filter(inActiveYear);
-    if (filters.q) {
-      const q = filters.q.toLowerCase();
-      list = list.filter(g => (g.title || '').toLowerCase().includes(q) || (g.platform || '').toLowerCase().includes(q));
-    }
+    let list = games.filter(inActiveYear).filter(matchesText);
     if (filters.platform !== 'all') list = list.filter(g => g.platform === filters.platform);
     if (filters.minRating > 0) list = list.filter(g => Number(g.rating) >= filters.minRating);
 
@@ -321,23 +351,36 @@
     return list;
   }
 
+  // pendientes primero; dentro, "muchas ganas" arriba y lo más nuevo antes
+  function currentWishList() {
+    let list = wishlist.filter(matchesText);
+    if (filters.platform !== 'all') list = list.filter(w => w.platform === filters.platform);
+    if (filters.priority !== 'all') list = list.filter(w => w.priority === filters.priority);
+    const rank = w => (w.completedGameId ? 2 : 0) + (w.priority === 'alta' ? 0 : 1);
+    return list.sort((a, b) => rank(a) - rank(b) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+
+  function coverHTML(g) {
+    return g.cover
+      ? `<div class="cover" data-mono="${escapeAttr(monogram(g.title))}" data-grad="${escapeAttr(genCoverStyle(g.title))}"><img src="${escapeAttr(g.cover)}" alt="" loading="lazy" onerror="window.__coverFail(this)"></div>`
+      : `<div class="cover-gen" style="${genCoverStyle(g.title)}"><div class="gmono">${escapeHTML(monogram(g.title))}</div></div>`;
+  }
+
+  function linkActs(title) {
+    return `<a class="act hltb" href="${searchURL('hltb', title)}" target="_blank" rel="noopener" data-stop>${I.clock} HowLongToBeat ${I.ext}</a>
+          <a class="act mc" href="${searchURL('mc', title)}" target="_blank" rel="noopener" data-stop>${I.star} Metacritic ${I.ext}</a>`;
+  }
+
   function cardHTML(g) {
     const rc = rateClass(g.rating);
-    const genCover = `<div class="cover-gen" style="${genCoverStyle(g.title)}"><div class="gmono">${escapeHTML(monogram(g.title))}</div></div>`;
-    const cover = g.cover
-      ? `<div class="cover" data-mono="${escapeAttr(monogram(g.title))}" data-grad="${escapeAttr(genCoverStyle(g.title))}"><img src="${escapeAttr(g.cover)}" alt="" loading="lazy" onerror="window.__coverFail(this)"></div>`
-      : genCover;
-
     const rateChip = g.rating ? `<div class="rate-chip ${rc}">${I.star}${fmtRating(g.rating)}</div>` : '';
-    const hours = g.hours ? `<span class="card-sub">${I.clock}${g.hours}h</span>` : '';
 
     return `<article class="card" data-id="${g.id}" tabindex="0" aria-label="${escapeAttr(g.title)}">
       <div class="card-cover">
-        ${cover}
+        ${coverHTML(g)}
         ${rateChip}
         <div class="card-actions">
-          <a class="act hltb" href="${searchURL('hltb', g.title)}" target="_blank" rel="noopener" data-stop>${I.clock} HowLongToBeat ${I.ext}</a>
-          <a class="act mc" href="${searchURL('mc', g.title)}" target="_blank" rel="noopener" data-stop>${I.star} Metacritic ${I.ext}</a>
+          ${linkActs(g.title)}
           <div class="act-row">
             <button class="act edit-btn" data-edit="${g.id}" data-stop>${I.edit} Editar</button>
           </div>
@@ -357,25 +400,67 @@
     </article>`;
   }
 
-  function renderGrid() {
-    const list = currentList();
-    renderStats(games.filter(inActiveYear));
-    const grid = $('#grid');
-    const total = games.filter(inActiveYear).length;
+  function wishCardHTML(w) {
+    const done = w.completedGameId ? games.find(g => g.id === w.completedGameId) : null;
+    const prio = !done && w.priority === 'alta' ? `<div class="prio-chip">${I.flame} Muchas ganas</div>` : '';
+    const foot = done
+      ? `<span class="wish-done-info">${I.check} ${fmtDate(done.date)}${done.rating ? ` · ${I.star} ${fmtRating(done.rating)}` : ''}</span>`
+      : `<button type="button" class="wish-complete" data-complete="${w.id}" data-stop>${I.check} Completar</button>`;
 
-    if (list.length === 0) {
-      const filtered = total > 0;
-      grid.innerHTML = `<div class="empty">
+    return `<article class="card wish-card${done ? ' is-done' : ''}" data-wid="${w.id}" tabindex="0" aria-label="${escapeAttr(w.title)}${done ? ' (completado)' : ''}">
+      <div class="card-cover">
+        ${coverHTML(w)}
+        ${prio}
+        ${done ? '<div class="done-stamp">¡Pasado!</div>' : ''}
+        <div class="card-actions">
+          ${linkActs(w.title)}
+          <div class="act-row">
+            <button class="act edit-btn" data-wedit="${w.id}" data-stop>${I.edit} Editar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-info">
+        <div class="card-title">${escapeHTML(w.title)}</div>
+        <div class="card-meta">
+          ${w.platform ? `<span class="tag">${escapeHTML(w.platform)}</span>` : ''}
+          ${w.mc ? mcBadge(w.mc, true) : ''}
+        </div>
+        <div class="card-foot">${foot}</div>
+      </div>
+    </article>`;
+  }
+
+  function emptyHTML(title, text, withAdd, addLabel) {
+    return `<div class="empty">
         <div class="ico">${I.pad}</div>
-        <h3>${filtered ? 'Sin resultados' : `Aún no hay juegos en ${activeYear}`}</h3>
-        <p>${filtered ? 'Prueba a cambiar los filtros o el buscador.' : 'Empieza a registrar los juegos que has terminado este año.'}</p>
-        ${filtered ? '' : `<button class="btn-add" id="emptyAdd">${I.plus} Añadir el primero</button>`}
+        <h3>${title}</h3>
+        <p>${text}</p>
+        ${withAdd ? `<button class="btn-add" id="emptyAdd">${I.plus} ${addLabel}</button>` : ''}
       </div>`;
-      const ea = $('#emptyAdd');
-      if (ea) ea.addEventListener('click', () => openModal());
+  }
+
+  function renderGrid() {
+    renderStats();
+    const grid = $('#grid');
+    const wish = section === 'wish';
+    const list = wish ? currentWishList() : currentList();
+
+    if (wish && !wishlistReady) {
+      grid.innerHTML = emptyHTML('Wishlist sin activar', 'Falta crear la tabla en Supabase: corre supabase/migrations/002_wishlist.sql (ver SETUP.md).', false);
       return;
     }
-    grid.innerHTML = list.map(cardHTML).join('');
+    if (list.length === 0) {
+      const filtered = wish ? wishlist.length > 0 : games.filter(inActiveYear).length > 0;
+      grid.innerHTML = filtered
+        ? emptyHTML('Sin resultados', 'Prueba a cambiar los filtros o el buscador.', false)
+        : wish
+          ? emptyHTML('Tu wishlist está vacía', 'Guarda aquí los juegos que tienes ganas de jugar.', true, 'Añadir el primero')
+          : emptyHTML(`Aún no hay juegos en ${activeYear === 'all' ? 'tu lista' : activeYear}`, 'Empieza a registrar los juegos que has terminado.', true, 'Añadir el primero');
+      const ea = $('#emptyAdd');
+      if (ea) ea.addEventListener('click', () => wish ? openWishModal() : openModal());
+      return;
+    }
+    grid.innerHTML = list.map(wish ? wishCardHTML : cardHTML).join('');
     // animación de entrada escalonada
     grid.classList.remove('anim'); void grid.offsetWidth; grid.classList.add('anim');
     $$('.card', grid).forEach((c, i) => { c.style.animationDelay = Math.min(i * 45, 600) + 'ms'; });
@@ -385,7 +470,9 @@
   function renderMarquee() {
     const track = $('#marqueeTrack');
     if (!track) return;
-    const words = ['Tus partidas', 'Completados', 'Howlongtobeat', 'Metacritic', 'Nivel completado', 'Game over', 'Play hard'];
+    const words = section === 'wish'
+      ? ['Wishlist', 'Próxima partida', 'Muchas ganas', 'Algún día', 'Press start', 'Insert coin', 'Player 2']
+      : ['Tus partidas', 'Completados', 'Howlongtobeat', 'Metacritic', 'Nivel completado', 'Game over', 'Play hard'];
     const group = `<span>${words.join('</span><span>')}</span>`;
     track.innerHTML = group + group; // duplicado para bucle continuo
   }
@@ -402,15 +489,43 @@
   }
 
   function updateMasthead() {
-    const n = games.filter(inActiveYear).length;
-    $('#mastCount').textContent = n;
+    const wish = section === 'wish';
+    $('#tabCountDone').textContent = games.length;
+    $('#tabCountWish').textContent = wishlist.filter(w => !w.completedGameId).length;
+    $('#mastTitle').textContent = wish ? 'Wishlist' : 'Completados';
+    $('#mastCount').textContent = wish ? wishlist.filter(w => !w.completedGameId).length : games.filter(inActiveYear).length;
+    $('#mastSub').textContent = wish ? 'Juegos pendientes' : 'Juegos registrados';
+    $('#addCtaText').textContent = wish ? 'Añadir a wishlist' : 'Añadir juego';
+  }
+
+  /* ---------- secciones ---------- */
+  function setSection(next, silent) {
+    section = next === 'wish' ? 'wish' : 'done';
+    try { localStorage.setItem(SECTION_KEY, section); } catch (e) { /* noop */ }
+    document.body.dataset.section = section;
+    $('#tabDone').setAttribute('aria-selected', String(section === 'done'));
+    $('#tabWish').setAttribute('aria-selected', String(section === 'wish'));
+    filters.platform = 'all';
+    renderMarquee();
+    if (!silent) renderAll();
+  }
+
+  // una carátula puede estar compartida entre un pendiente y el juego completado que salió de él
+  function coverInUse(url, skip) {
+    if (!url) return false;
+    return games.some(g => g !== skip && g.cover === url) || wishlist.some(w => w !== skip && w.cover === url);
+  }
+  function dropCover(url, skip) {
+    if (url && !coverInUse(url, skip)) DB.removeCover(url);
   }
 
   /* ============================================================
-     MODAL
+     MODAL (juego completado · pendiente de wishlist · completar pendiente)
      ============================================================ */
-  let editingId = null;
-  let pendingCover = null; // { blob, url } — imagen elegida del dispositivo, se sube al guardar
+  let editingId = null;       // id del juego o del pendiente que se edita
+  let modalMode = 'done';     // 'done' | 'wish'
+  let completingWish = null;  // pendiente que se está marcando como completado
+  let pendingCover = null;    // { blob, url } — imagen elegida del dispositivo, se sube al guardar
   let saving = false;
 
   function clearPendingCover() {
@@ -419,7 +534,8 @@
   }
 
   function buildPlatformOptions(selected) {
-    return PLATFORMS.map(p => `<option value="${p}" ${p === selected ? 'selected' : ''}>${p}</option>`).join('');
+    const list = selected && !PLATFORMS.includes(selected) ? [...PLATFORMS, selected] : PLATFORMS;
+    return list.map(p => `<option value="${escapeAttr(p)}" ${p === selected ? 'selected' : ''}>${escapeHTML(p)}</option>`).join('');
   }
   function buildYearOptions(selected) {
     const now = new Date().getFullYear();
@@ -430,18 +546,22 @@
     return opts.join('');
   }
 
-  function openModal(id) {
-    editingId = id || null;
-    const g = id ? games.find(x => x.id === id) : null;
-    $('#modalTitle').textContent = g ? 'Editar juego' : 'Añadir juego';
-    $('#f_title').value = g ? g.title : '';
-    $('#f_platform').innerHTML = buildPlatformOptions(g ? g.platform : 'PS5');
-    $('#f_date').innerHTML = buildYearOptions(g ? yearOf(g) : new Date().getFullYear());
-    $('#f_hours').value = g && g.hours ? g.hours : '';
-    setRating(g && g.rating ? g.rating : 8);
-    $('#f_note').value = g ? (g.note || '') : '';
-    $('#f_cover').value = g ? (g.cover || '') : '';
-    modalExtra = g ? { mc: g.mc || 0, rawgSlug: g.rawgSlug || '', releaseYear: g.releaseYear || '' } : {};
+  // src: datos con los que se rellena el formulario (juego, pendiente o nada)
+  function fillForm(mode, src, title) {
+    modalMode = mode;
+    $('#modalBackdrop').dataset.mode = mode;
+    $('#modalTitle').textContent = title;
+    $('#f_title').value = src ? src.title : '';
+    $('#f_platform').innerHTML = buildPlatformOptions(src && src.platform ? src.platform : 'PS5');
+    $('#f_date').innerHTML = buildYearOptions(src && src.date ? yearOf(src) : new Date().getFullYear());
+    $('#f_hours').value = src && src.hours ? src.hours : '';
+    setRating(src && src.rating ? src.rating : 8);
+    $('#f_cover').value = src ? (src.cover || '') : '';
+    const prio = src && src.priority === 'alta' ? 'alta' : 'normal';
+    $$('input[name="f_prio"]').forEach(r => { r.checked = r.value === prio; });
+    $('#noteLabel').textContent = mode === 'wish' ? 'Nota' : 'Comentario';
+    $('#f_note').placeholder = mode === 'wish' ? 'Por qué lo quieres jugar, quién te lo recomendó…' : 'Lo que te pareció…';
+    modalExtra = src ? { mc: src.mc || 0, rawgSlug: src.rawgSlug || '', releaseYear: src.releaseYear || '' } : {};
     $('#autofillBadge').hidden = true;
     $('#autofillInfo').hidden = true;
     hideAc();
@@ -450,11 +570,45 @@
     syncRating();
     syncCoverPreview();
     renderMcField();
-    $('#btnDelete').style.display = g ? 'inline-flex' : 'none';
+    $('#btnDelete').style.display = editingId ? 'inline-flex' : 'none';
     $('#modalBackdrop').classList.add('open');
+  }
+
+  function openModal(id) {
+    editingId = id || null;
+    completingWish = null;
+    const g = id ? games.find(x => x.id === id) : null;
+    fillForm('done', g, g ? 'Editar juego' : 'Añadir juego');
+    $('#f_note').value = g ? (g.note || '') : '';
     setTimeout(() => $('#f_title').focus(), 60);
   }
-  function closeModal() { $('#modalBackdrop').classList.remove('open'); editingId = null; clearPendingCover(); acSeq++; }
+
+  function openWishModal(id) {
+    if (!wishlistReady) { toast('La wishlist todavía no está activada en la base de datos'); return; }
+    editingId = id || null;
+    completingWish = null;
+    const w = id ? wishlist.find(x => x.id === id) : null;
+    fillForm('wish', w, w ? 'Editar pendiente' : 'Añadir a wishlist');
+    $('#f_note').value = w ? (w.note || '') : '';
+    setTimeout(() => $('#f_title').focus(), 60);
+  }
+
+  // pasa un pendiente a completados: mismos datos del juego, faltan año, horas, nota y comentario
+  function openCompleteModal(wishId) {
+    const w = wishlist.find(x => x.id === wishId);
+    if (!w) return;
+    editingId = null;
+    completingWish = w;
+    fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Completado!');
+    $('#f_note').value = '';
+    setTimeout(() => $('#f_hours').focus(), 60);
+  }
+
+  function closeModal() {
+    $('#modalBackdrop').classList.remove('open');
+    editingId = null; completingWish = null;
+    clearPendingCover(); acSeq++;
+  }
 
   function renderMcField() {
     const mc = modalExtra.mc || 0;
@@ -490,19 +644,23 @@
     if (saving) return;
     const title = $('#f_title').value.trim();
     if (!title) { $('#f_title').focus(); toast('Pon un título'); return; }
-    const data = {
+    const common = {
       title,
       platform: $('#f_platform').value,
-      date: $('#f_date').value,
-      hours: Number($('#f_hours').value) || 0,
-      rating: Math.round((Number($('#f_ratingNum').value) || 0) * 10) / 10,
       cover: $('#f_cover').value.trim(),
       note: $('#f_note').value.trim(),
       mc: modalExtra.mc || 0,
       rawgSlug: modalExtra.rawgSlug || '',
       releaseYear: modalExtra.releaseYear || ''
     };
-    const prev = editingId ? games.find(x => x.id === editingId) : null;
+    const data = modalMode === 'wish'
+      ? { ...common, priority: ($('input[name="f_prio"]:checked') || {}).value === 'alta' ? 'alta' : 'normal' }
+      : {
+          ...common,
+          date: $('#f_date').value,
+          hours: Number($('#f_hours').value) || 0,
+          rating: Math.round((Number($('#f_ratingNum').value) || 0) * 10) / 10
+        };
 
     saving = true;
     const btn = $('#btnSave');
@@ -510,56 +668,99 @@
     let uploaded = '';
     try {
       if (pendingCover) data.cover = uploaded = await DB.uploadCover(pendingCover.blob);
-      if (prev) {
-        const saved = await DB.updateGame(prev.id, data);
-        games[games.findIndex(x => x.id === prev.id)] = saved;
-        if (prev.cover !== saved.cover) DB.removeCover(prev.cover);
-        toast('Juego actualizado');
-      } else {
-        games.push(await DB.insertGame(data));
-        toast('Juego añadido');
-      }
+      if (modalMode === 'wish') await saveWish(data);
+      else await saveGame(data);
     } catch (e) {
       console.error(e);
-      if (uploaded) DB.removeCover(uploaded);
+      if (uploaded) dropCover(uploaded);
       toast('No se pudo guardar — revisa tu conexión');
       return;
     } finally {
       saving = false;
       btn.disabled = false; btn.textContent = 'Guardar';
     }
-    activeYear = (activeYear === 'all' || yearOf(data) === 'Sin fecha') ? activeYear : yearOf(data);
+    if (modalMode === 'done' && !completingWish) {
+      activeYear = (activeYear === 'all' || yearOf(data) === 'Sin fecha') ? activeYear : yearOf(data);
+    }
     closeModal();
     renderAll();
   }
 
+  async function saveGame(data) {
+    const prev = editingId ? games.find(x => x.id === editingId) : null;
+    if (prev) {
+      const saved = await DB.updateGame(prev.id, data);
+      games[games.indexOf(prev)] = saved;
+      if (prev.cover !== saved.cover) dropCover(prev.cover, saved);
+      toast('Juego actualizado');
+      return;
+    }
+    const game = await DB.insertGame(data);
+    games.push(game);
+    if (!completingWish) { toast('Juego añadido'); return; }
+    // enlazar el pendiente con el juego recién creado
+    const w = completingWish;
+    try {
+      wishlist[wishlist.indexOf(w)] = await DB.updateWish(w.id, { ...w, completedGameId: game.id });
+      toast('¡Completado! Ya está en Completados');
+    } catch (e) {
+      console.error(e);
+      toast('Se guardó en Completados, pero no se pudo marcar en la wishlist');
+    }
+  }
+
+  async function saveWish(data) {
+    const prev = editingId ? wishlist.find(x => x.id === editingId) : null;
+    if (prev) {
+      const saved = await DB.updateWish(prev.id, { ...prev, ...data });
+      wishlist[wishlist.indexOf(prev)] = saved;
+      if (prev.cover !== saved.cover) dropCover(prev.cover, saved);
+      toast('Pendiente actualizado');
+    } else {
+      wishlist.push(await DB.insertWish(data));
+      toast('Añadido a la wishlist');
+    }
+  }
+
+  let pendingDelete = null; // { kind: 'game' | 'wish', item }
   function deleteCurrent() {
     if (!editingId) return;
-    const g = games.find(x => x.id === editingId);
-    if (!g) return;
-    pendingDeleteId = editingId;
-    $('#confirmText').innerHTML = `Vas a borrar <b>${escapeHTML(g.title)}</b>. Esta acción no se puede deshacer.`;
+    const kind = modalMode === 'wish' ? 'wish' : 'game';
+    const item = (kind === 'wish' ? wishlist : games).find(x => x.id === editingId);
+    if (!item) return;
+    pendingDelete = { kind, item };
+    const extra = kind === 'game' && wishlist.some(w => w.completedGameId === item.id)
+      ? ' En la wishlist volverá a quedar como pendiente.'
+      : kind === 'wish' && item.completedGameId ? ' El juego sigue en Completados.' : '';
+    $('#confirmTitle').textContent = kind === 'wish' ? '¿Quitar de la wishlist?' : '¿Borrar este juego?';
+    $('#confirmText').innerHTML = `Vas a borrar <b>${escapeHTML(item.title)}</b>.${extra} Esta acción no se puede deshacer.`;
     $('#confirmBackdrop').classList.add('open');
     setTimeout(() => $('#confirmOk').focus(), 60);
   }
-  let pendingDeleteId = null;
-  function closeConfirm() { $('#confirmBackdrop').classList.remove('open'); pendingDeleteId = null; }
+  function closeConfirm() { $('#confirmBackdrop').classList.remove('open'); pendingDelete = null; }
   async function confirmDelete() {
-    if (!pendingDeleteId) return;
-    const g = games.find(x => x.id === pendingDeleteId);
+    if (!pendingDelete) return;
+    const { kind, item } = pendingDelete;
     try {
-      await DB.deleteGame(pendingDeleteId);
+      if (kind === 'wish') await DB.deleteWish(item.id);
+      else await DB.deleteGame(item.id);
     } catch (e) {
       console.error(e);
       toast('No se pudo borrar — revisa tu conexión');
       return;
     }
-    if (g) DB.removeCover(g.cover);
-    games = games.filter(x => x.id !== pendingDeleteId);
+    if (kind === 'wish') {
+      wishlist = wishlist.filter(x => x !== item);
+    } else {
+      games = games.filter(x => x !== item);
+      // la base desenlaza el pendiente (on delete set null); reflejarlo en memoria
+      wishlist.forEach(w => { if (w.completedGameId === item.id) w.completedGameId = null; });
+    }
+    dropCover(item.cover, item);
     closeConfirm();
     closeModal();
     renderAll();
-    toast('Juego borrado');
+    toast(kind === 'wish' ? 'Quitado de la wishlist' : 'Juego borrado');
   }
 
   /* ---------- toast ---------- */
@@ -593,32 +794,40 @@
     $('#searchInput').addEventListener('input', e => { filters.q = e.target.value; renderGrid(); });
     $('#filterPlatform').addEventListener('change', e => { filters.platform = e.target.value; renderGrid(); });
     $('#filterRating').addEventListener('change', e => { filters.minRating = Number(e.target.value); renderGrid(); });
+    $('#filterPriority').addEventListener('change', e => { filters.priority = e.target.value; renderGrid(); });
+    $$('.section-tab').forEach(t => t.addEventListener('click', () => { if (t.dataset.section !== section) setSection(t.dataset.section); }));
 
     $('#btnReset').addEventListener('click', () => {
-      filters.q = ''; filters.platform = 'all'; filters.minRating = 0;
+      filters.q = ''; filters.platform = 'all'; filters.minRating = 0; filters.priority = 'all';
       activeYear = 'all';
       $('#searchInput').value = '';
       $('#filterPlatform').value = 'all';
       $('#filterRating').value = '0';
+      $('#filterPriority').value = 'all';
       $('#filterYear').value = 'all';
       renderAll();
       toast('Filtros restablecidos');
     });
 
-    $('#btnAdd').addEventListener('click', () => openModal());
+    $('#btnAdd').addEventListener('click', () => section === 'wish' ? openWishModal() : openModal());
 
     // grid: click tarjeta -> editar; botones internos paran propagación
+    const openCard = card => card.dataset.wid ? openWishModal(card.dataset.wid) : openModal(card.dataset.id);
     $('#grid').addEventListener('click', e => {
       if (e.target.closest('[data-stop]')) {
         const eb = e.target.closest('[data-edit]');
+        const wb = e.target.closest('[data-wedit]');
+        const cb = e.target.closest('[data-complete]');
         if (eb) { e.preventDefault(); openModal(eb.dataset.edit); }
+        if (wb) { e.preventDefault(); openWishModal(wb.dataset.wedit); }
+        if (cb) { e.preventDefault(); openCompleteModal(cb.dataset.complete); }
         return;
       }
       const card = e.target.closest('.card');
-      if (card) openModal(card.dataset.id);
+      if (card) openCard(card);
     });
     $('#grid').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { const c = e.target.closest('.card'); if (c) openModal(c.dataset.id); }
+      if (e.key === 'Enter' && !e.target.closest('[data-stop]')) { const c = e.target.closest('.card'); if (c) openCard(c); }
     });
 
     // modal
@@ -838,45 +1047,67 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  // clave para detectar repetidos y reenlazar pendientes con su juego completado
+  const gameKey = g => String(g.title || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 4);
+  const wishKey = w => String(w.title || '').trim().toLowerCase();
+
   function exportGames() {
-    const clean = games.map(({ id, ...g }) => g);
+    const cleanGames = games.map(({ id, ...g }) => g);
+    const cleanWish = wishlist.map(({ id, completedGameId, createdAt, ...w }) => {
+      const done = completedGameId && games.find(g => g.id === completedGameId);
+      return done ? { ...w, completedKey: gameKey(done) } : w;
+    });
     const stamp = new Date().toISOString().slice(0, 10);
-    download(`videojuegos-completados-${stamp}.json`, JSON.stringify({ app: 'videojuegos-completados', version: 1, exportedAt: new Date().toISOString(), games: clean }, null, 2));
-    toast(`Exportados ${clean.length} juegos`);
+    download(`videojuegos-completados-${stamp}.json`, JSON.stringify({
+      app: 'videojuegos-completados', version: 2, exportedAt: new Date().toISOString(),
+      games: cleanGames, wishlist: cleanWish
+    }, null, 2));
+    toast(`Exportados ${cleanGames.length} juegos y ${cleanWish.length} pendientes`);
   }
 
-  // acepta el export nuevo ({ games: [...] }) y la lista de la versión anterior ([...])
+  // carátula subida en la versión anterior (dataURL) -> a Storage
+  async function importCover(cover) {
+    cover = String(cover || '');
+    if (!cover.startsWith('data:')) return cover;
+    try { return await DB.uploadCover(await shrinkImage(await (await fetch(cover)).blob())); }
+    catch (e) { return ''; }
+  }
+
+  // acepta el export nuevo ({ games, wishlist }) y la lista de la versión anterior ([...])
   async function importGames(file) {
-    let list;
+    let gList, wList;
     try {
       const parsed = JSON.parse(await file.text());
-      list = Array.isArray(parsed) ? parsed : parsed.games;
-      if (!Array.isArray(list)) throw new Error('formato');
+      gList = Array.isArray(parsed) ? parsed : parsed.games || [];
+      wList = Array.isArray(parsed) ? [] : parsed.wishlist || [];
+      if (!Array.isArray(gList) || !Array.isArray(wList)) throw new Error('formato');
     } catch (e) { toast('Ese archivo no es una lista de juegos'); return; }
 
-    const key = g => String(g.title || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 4);
-    const have = new Set(games.map(key));
-    const fresh = list.filter(g => g && String(g.title || '').trim() && !have.has(key(g)));
-    const skipped = list.length - fresh.length;
-    if (!fresh.length) { toast(skipped ? 'Todos esos juegos ya estaban en tu lista' : 'El archivo está vacío'); return; }
+    const haveG = new Set(games.map(gameKey));
+    const haveW = new Set(wishlist.map(wishKey));
+    const freshG = gList.filter(g => g && String(g.title || '').trim() && !haveG.has(gameKey(g)));
+    const freshW = wList.filter(w => w && String(w.title || '').trim() && !haveW.has(wishKey(w)));
+    const skipped = gList.length - freshG.length + wList.length - freshW.length;
+    if (!freshG.length && !freshW.length) { toast(skipped ? 'Todo eso ya estaba en tu lista' : 'El archivo está vacío'); return; }
 
-    toast(`Importando ${fresh.length} juegos…`);
-    const ready = [];
-    for (const g of fresh) {
-      let cover = String(g.cover || '');
-      if (cover.startsWith('data:')) { // carátula subida en la versión anterior -> a Storage
-        try { cover = await DB.uploadCover(await shrinkImage(await (await fetch(cover)).blob())); }
-        catch (e) { cover = ''; }
-      }
-      ready.push({ ...g, title: String(g.title).trim(), cover });
-    }
+    toast(`Importando ${freshG.length + freshW.length} juegos…`);
     try {
-      games.push(...await DB.insertGames(ready));
+      const readyG = [];
+      for (const g of freshG) readyG.push({ ...g, title: String(g.title).trim(), cover: await importCover(g.cover) });
+      if (readyG.length) games.push(...await DB.insertGames(readyG));
+
+      const byKey = new Map(games.map(g => [gameKey(g), g.id]));
+      const readyW = [];
+      for (const w of freshW) {
+        readyW.push({ ...w, title: String(w.title).trim(), cover: await importCover(w.cover), completedGameId: byKey.get(w.completedKey) || null });
+      }
+      if (readyW.length) wishlist.push(...await DB.insertWishes(readyW));
     } catch (e) {
-      console.error(e); toast('No se pudo importar — revisa tu conexión'); return;
+      console.error(e); renderAll(); toast('No se pudo importar todo — revisa tu conexión'); return;
     }
     renderAll();
-    toast(`Importados ${ready.length} juegos` + (skipped ? ` (${skipped} repetidos omitidos)` : ''));
+    const parts = [freshG.length && `${freshG.length} juegos`, freshW.length && `${freshW.length} pendientes`].filter(Boolean).join(' y ');
+    toast(`Importados ${parts}` + (skipped ? ` (${skipped} repetidos omitidos)` : ''));
   }
 
   // reduce la imagen a máx. 800px de lado y la pasa a JPEG
@@ -925,6 +1156,9 @@
     applyTheme(localStorage.getItem(THEME_KEY) || 'light');
     bind();
     bindAccount();
+    let saved = 'done';
+    try { saved = localStorage.getItem(SECTION_KEY) || 'done'; } catch (e) { /* noop */ }
+    setSection(saved, true);
     enhanceSelects();
     document.addEventListener('click', () => $$('.select-wrap.cs-open').forEach(w => w.classList.remove('cs-open')));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.select-wrap.cs-open').forEach(w => w.classList.remove('cs-open')); });

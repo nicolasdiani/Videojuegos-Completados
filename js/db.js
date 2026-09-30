@@ -23,7 +23,8 @@
     note: r.note || '',
     mc: r.mc || 0,
     rawgSlug: r.rawg_slug || '',
-    releaseYear: r.release_year || ''
+    releaseYear: r.release_year || '',
+    createdAt: r.created_at || ''
   });
   const toRow = g => ({
     title: g.title,

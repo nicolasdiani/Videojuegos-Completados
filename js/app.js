@@ -64,11 +64,6 @@
 
   // color candy determinista a partir del título -> carátula generada
   const COVER_PALETTE = ['#25D6E8', '#FF54C6', '#FFD23F', '#4FE08A', '#FF8A3D', '#A06CF5'];
-  function hueOf(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
-    return h;
-  }
   function genCoverStyle(title) {
     let n = 0;
     for (let i = 0; i < title.length; i++) n = (n * 31 + title.charCodeAt(i)) >>> 0;
@@ -85,7 +80,10 @@
     if (!box) return;
     box.className = 'cover-gen';
     box.style.cssText = box.dataset.grad || '';
-    box.innerHTML = `<div class="gmono">${box.dataset.mono || ''}</div>`;
+    const mono = document.createElement('div');
+    mono.className = 'gmono';
+    mono.textContent = box.dataset.mono || '';
+    box.replaceChildren(mono);
   };
 
   function searchURL(site, title) {
@@ -113,10 +111,10 @@
     for (const [needle, ours] of RAWG_PLAT) if (names.includes(needle)) return ours;
     return null;
   }
-  const mcClass = m => m >= 80 ? 'high' : m >= 50 ? 'mid' : 'low';
 
   let acTimer = null, acSeq = 0, acResults = [], acActive = -1;
-  let modalExtra = {}; // mc, rawgSlug, releaseYear capturados del autofill
+  let modalExtra = {}; // mc, rawgSlug, releaseYear del juego (guardados o del autofill)
+  let extraFromAutofill = false; // true si modalExtra salió de elegir un resultado de RAWG
 
   function hideAc() { const d = $('#acDropdown'); d.hidden = true; d.innerHTML = ''; acActive = -1; }
 
@@ -125,7 +123,9 @@
   function onTitleInput() {
     $('#autofillBadge').hidden = true;
     $('#autofillInfo').hidden = true;
-    modalExtra = {};
+    // si el dato venía de un resultado elegido y el título cambió, ya no corresponde a este juego;
+    // si venía guardado (editar), corregir el título no lo borra
+    if (extraFromAutofill) { modalExtra = {}; extraFromAutofill = false; renderMcField(); }
     clearTimeout(acTimer);
     const q = $('#f_title').value.trim();
     setHint('');
@@ -160,7 +160,7 @@
       const thumb = g.background_image
         ? `<img class="ac-thumb" src="${escapeAttr(g.background_image)}" alt="" loading="lazy">`
         : `<div class="ac-thumb"></div>`;
-      const mc = g.metacritic ? `<span class="ac-mc ${mcClass(g.metacritic)}">${g.metacritic}</span>` : '';
+      const mc = g.metacritic ? `<span class="ac-mc ${mcScoreClass(g.metacritic)}">${g.metacritic}</span>` : '';
       return `<button type="button" class="ac-item" data-i="${i}">
         ${thumb}
         <span class="ac-meta">
@@ -187,6 +187,7 @@
       rawgSlug: g.slug || '',
       releaseYear: (g.released || '').slice(0, 4)
     };
+    extraFromAutofill = true;
     syncCoverPreview();
     showAutofillInfo(g);
     renderMcField();
@@ -346,7 +347,7 @@
       if (s === 'rating') return (b.rating || 0) - (a.rating || 0);
       if (s === 'hours') return (b.hours || 0) - (a.hours || 0);
       if (s === 'title') return (a.title || '').localeCompare(b.title || '');
-      return (b.date || '').localeCompare(a.date || ''); // date
+      return (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''); // date
     });
     return list;
   }
@@ -562,6 +563,7 @@
     $('#noteLabel').textContent = mode === 'wish' ? 'Nota' : 'Comentario';
     $('#f_note').placeholder = mode === 'wish' ? 'Por qué lo quieres jugar, quién te lo recomendó…' : 'Lo que te pareció…';
     modalExtra = src ? { mc: src.mc || 0, rawgSlug: src.rawgSlug || '', releaseYear: src.releaseYear || '' } : {};
+    extraFromAutofill = false;
     $('#autofillBadge').hidden = true;
     $('#autofillInfo').hidden = true;
     hideAc();
@@ -662,14 +664,15 @@
           rating: Math.round((Number($('#f_ratingNum').value) || 0) * 10) / 10
         };
 
+    const ctx = { mode: modalMode, editingId, completingWish };
     saving = true;
     const btn = $('#btnSave');
     btn.disabled = true; btn.textContent = 'Guardando…';
     let uploaded = '';
     try {
       if (pendingCover) data.cover = uploaded = await DB.uploadCover(pendingCover.blob);
-      if (modalMode === 'wish') await saveWish(data);
-      else await saveGame(data);
+      if (ctx.mode === 'wish') await saveWish(data, ctx);
+      else await saveGame(data, ctx);
     } catch (e) {
       console.error(e);
       if (uploaded) dropCover(uploaded);
@@ -679,15 +682,15 @@
       saving = false;
       btn.disabled = false; btn.textContent = 'Guardar';
     }
-    if (modalMode === 'done' && !completingWish) {
+    if (ctx.mode === 'done' && !ctx.completingWish) {
       activeYear = (activeYear === 'all' || yearOf(data) === 'Sin fecha') ? activeYear : yearOf(data);
     }
     closeModal();
     renderAll();
   }
 
-  async function saveGame(data) {
-    const prev = editingId ? games.find(x => x.id === editingId) : null;
+  async function saveGame(data, ctx) {
+    const prev = ctx.editingId ? games.find(x => x.id === ctx.editingId) : null;
     if (prev) {
       const saved = await DB.updateGame(prev.id, data);
       games[games.indexOf(prev)] = saved;
@@ -697,11 +700,13 @@
     }
     const game = await DB.insertGame(data);
     games.push(game);
-    if (!completingWish) { toast('Juego añadido'); return; }
+    if (!ctx.completingWish) { toast('Juego añadido'); return; }
     // enlazar el pendiente con el juego recién creado
-    const w = completingWish;
+    const w = ctx.completingWish;
     try {
-      wishlist[wishlist.indexOf(w)] = await DB.updateWish(w.id, { ...w, completedGameId: game.id });
+      const linked = await DB.updateWish(w.id, { ...w, completedGameId: game.id });
+      const i = wishlist.indexOf(w);
+      if (i >= 0) wishlist[i] = linked;
       toast('¡Completado! Ya está en Completados');
     } catch (e) {
       console.error(e);
@@ -709,8 +714,8 @@
     }
   }
 
-  async function saveWish(data) {
-    const prev = editingId ? wishlist.find(x => x.id === editingId) : null;
+  async function saveWish(data, ctx) {
+    const prev = ctx.editingId ? wishlist.find(x => x.id === ctx.editingId) : null;
     if (prev) {
       const saved = await DB.updateWish(prev.id, { ...prev, ...data });
       wishlist[wishlist.indexOf(prev)] = saved;
@@ -776,7 +781,7 @@
   /* ---------- tema ---------- */
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem(THEME_KEY, theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* noop */ }
     $('#themeIcon').innerHTML = theme === 'dark'
       ? '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
       : '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>';
@@ -844,7 +849,6 @@
         if ($('#confirmBackdrop').classList.contains('open')) { closeConfirm(); return; }
         closeModal(); closeSettings();
       }
-      if (e.key === 'Enter' && $('#confirmBackdrop').classList.contains('open')) { confirmDelete(); return; }
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && $('#modalBackdrop').classList.contains('open')) saveFromModal();
     });
     $('#f_rating').addEventListener('input', syncRating);
@@ -967,7 +971,8 @@
     const text = $('#gateText'), err = $('#gateErr');
     $('#btnGoogle').hidden = mode !== 'login';
     $('#btnGoogle').disabled = false;
-    $('#btnGateLogout').hidden = mode !== 'denied';
+    $('#btnGateLogout').hidden = mode !== 'denied' && mode !== 'error';
+    $('#btnGateLogout').textContent = mode === 'error' ? 'Cerrar sesión' : 'Usar otra cuenta';
     err.hidden = !(mode === 'login' && detail);
     if (mode === 'login') {
       text.textContent = 'Tu registro de juegos terminados. Entra con tu cuenta de Google para ver tu lista.';
@@ -1052,7 +1057,7 @@
   const wishKey = w => String(w.title || '').trim().toLowerCase();
 
   function exportGames() {
-    const cleanGames = games.map(({ id, ...g }) => g);
+    const cleanGames = games.map(({ id, createdAt, ...g }) => g);
     const cleanWish = wishlist.map(({ id, completedGameId, createdAt, ...w }) => {
       const done = completedGameId && games.find(g => g.id === completedGameId);
       return done ? { ...w, completedKey: gameKey(done) } : w;
@@ -1073,6 +1078,21 @@
     catch (e) { return ''; }
   }
 
+  // valores de un archivo importado, dentro de los rangos que acepta la base
+  function cleanImported(x) {
+    const num = (v, min, max) => Math.min(max, Math.max(min, Number(v) || 0));
+    return {
+      ...x,
+      title: String(x.title).trim().slice(0, 200),
+      platform: String(x.platform || '').slice(0, 40),
+      date: String(x.date || '').slice(0, 10),
+      hours: Math.round(num(x.hours, 0, 100000)),
+      rating: Math.round(num(x.rating, 0, 10) * 10) / 10,
+      mc: Math.round(num(x.mc, 0, 100)),
+      note: String(x.note || '').slice(0, 5000)
+    };
+  }
+
   // acepta el export nuevo ({ games, wishlist }) y la lista de la versión anterior ([...])
   async function importGames(file) {
     let gList, wList;
@@ -1086,20 +1106,20 @@
     const haveG = new Set(games.map(gameKey));
     const haveW = new Set(wishlist.map(wishKey));
     const freshG = gList.filter(g => g && String(g.title || '').trim() && !haveG.has(gameKey(g)));
-    const freshW = wList.filter(w => w && String(w.title || '').trim() && !haveW.has(wishKey(w)));
+    const freshW = wishlistReady ? wList.filter(w => w && String(w.title || '').trim() && !haveW.has(wishKey(w))) : [];
     const skipped = gList.length - freshG.length + wList.length - freshW.length;
     if (!freshG.length && !freshW.length) { toast(skipped ? 'Todo eso ya estaba en tu lista' : 'El archivo está vacío'); return; }
 
     toast(`Importando ${freshG.length + freshW.length} juegos…`);
     try {
       const readyG = [];
-      for (const g of freshG) readyG.push({ ...g, title: String(g.title).trim(), cover: await importCover(g.cover) });
+      for (const g of freshG) readyG.push({ ...cleanImported(g), cover: await importCover(g.cover) });
       if (readyG.length) games.push(...await DB.insertGames(readyG));
 
       const byKey = new Map(games.map(g => [gameKey(g), g.id]));
       const readyW = [];
       for (const w of freshW) {
-        readyW.push({ ...w, title: String(w.title).trim(), cover: await importCover(w.cover), completedGameId: byKey.get(w.completedKey) || null });
+        readyW.push({ ...cleanImported(w), cover: await importCover(w.cover), completedGameId: byKey.get(w.completedKey) || null });
       }
       if (readyW.length) wishlist.push(...await DB.insertWishes(readyW));
     } catch (e) {
@@ -1153,7 +1173,9 @@
 
   /* ---------- init ---------- */
   async function init() {
-    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+    let theme = 'light';
+    try { theme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) { /* noop */ }
+    applyTheme(theme);
     bind();
     bindAccount();
     let saved = 'done';
@@ -1167,7 +1189,9 @@
     if (!DB || !DB.configured) { showGate('config'); return; }
     const oauthError = readOAuthError();
     DB.onAuthChange(event => { if (event === 'SIGNED_OUT') location.reload(); });
-    const session = await DB.getSession();
+    let session;
+    try { session = await DB.getSession(); }
+    catch (e) { console.error(e); showGate('error'); return; }
     if (!session) { showGate('login', oauthError); return; }
     await enter(session);
   }

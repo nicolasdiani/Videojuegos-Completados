@@ -433,8 +433,37 @@
       </div>`;
   }
 
+  /* ---------- filtros activos (etiquetas del celular) ---------- */
+  function activeFilterList() {
+    const out = [];
+    if (section === 'done' && activeYear !== 'all') out.push({ key: 'year', label: 'Año ' + activeYear });
+    if (filters.platform !== 'all') out.push({ key: 'platform', label: filters.platform });
+    if (section === 'done' && filters.minRating > 0) out.push({ key: 'rating', label: 'Nota ' + filters.minRating + '+' });
+    if (section === 'wish' && filters.priority !== 'all') out.push({ key: 'priority', label: filters.priority === 'alta' ? 'Muchas ganas' : 'Algún día' });
+    return out;
+  }
+  function renderActiveFilters() {
+    const list = activeFilterList();
+    const x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    $('#activeFilters').innerHTML = list.map(f =>
+      `<button type="button" class="filter-chip" data-clear="${f.key}" aria-label="Quitar filtro ${escapeAttr(f.label)}">${escapeHTML(f.label)}<span class="x" aria-hidden="true">${x}</span></button>`
+    ).join('');
+    const count = $('#filtersCount');
+    count.textContent = list.length;
+    count.hidden = list.length === 0;
+    $('#btnFilters').setAttribute('aria-label', list.length ? `Filtros (${list.length} activos)` : 'Filtros');
+  }
+  function clearFilter(key) {
+    if (key === 'year') { activeYear = 'all'; $('#filterYear').value = 'all'; }
+    if (key === 'platform') { filters.platform = 'all'; $('#filterPlatform').value = 'all'; }
+    if (key === 'rating') { filters.minRating = 0; $('#filterRating').value = '0'; }
+    if (key === 'priority') { filters.priority = 'all'; $('#filterPriority').value = 'all'; }
+    renderAll();
+  }
+
   function renderGrid() {
     renderStats();
+    renderActiveFilters();
     const grid = $('#grid');
     const wish = section === 'wish';
     const list = wish ? currentWishList() : currentList();
@@ -844,6 +873,20 @@
     });
 
     $('#btnAdd').addEventListener('click', () => section === 'wish' ? openWishModal() : openModal());
+
+    // celular: filtros plegados detrás del botón junto al buscador
+    $('#btnFilters').addEventListener('click', () => {
+      const open = $('.toolbar').classList.toggle('filters-open');
+      $('#btnFilters').setAttribute('aria-expanded', String(open));
+    });
+    $('#activeFilters').addEventListener('click', e => {
+      const b = e.target.closest('[data-clear]');
+      if (!b) return;
+      const next = b.nextElementSibling || b.previousElementSibling; // para no perder el foco
+      clearFilter(b.dataset.clear);
+      const target = next && $(`#activeFilters [data-clear="${next.dataset.clear}"]`);
+      (target || $('#btnFilters')).focus({ preventScroll: true });
+    });
 
     // grid: tocar la tarjeta (su botón de título la cubre entera) -> editar;
     // los accesos de abajo (links, "Completar") llevan data-stop y hacen lo suyo

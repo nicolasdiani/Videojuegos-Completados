@@ -1177,6 +1177,43 @@ body[data-section="wish"] {
 }
 
 /* ============================================================
+   FILTROS PLEGABLES (celular)
+   ============================================================ */
+/* en la computadora el panel no existe como caja: los filtros siguen en la fila de siempre */
+.filters-panel { display: contents; }
+.filters-toggle, .active-filters { display: none; }
+
+@media (max-width: 640px) {
+  .toolbar { flex-wrap: wrap; }
+  .search { flex: 1 1 0; min-width: 0; }
+  .filters-toggle {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+    height: 50px; min-width: 58px; padding: 0 14px; border-radius: var(--r-pill);
+    border: var(--bw) solid var(--line); background: var(--paper); color: var(--text);
+    box-shadow: 4px 4px 0 var(--shadow-col); cursor: pointer; transition: transform .12s, box-shadow .12s, background .15s;
+  }
+  .filters-toggle .icon { width: 22px; height: 22px; }
+  .filters-toggle[aria-expanded="true"] { background: var(--accent); color: #0B0B0C; }
+  .filters-count {
+    min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill); display: inline-grid; place-items: center;
+    background: var(--yellow); color: #0B0B0C; border: 2px solid #0B0B0C; font-size: 12px; font-weight: 900;
+  }
+  .filters-panel { display: none; }
+  .toolbar.filters-open .filters-panel { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; }
+
+  .active-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: -16px 0 24px; }
+  .active-filters:empty { display: none; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 8px 0 14px;
+    border-radius: var(--r-pill); border: 2.5px solid var(--line); background: var(--accent); color: #0B0B0C;
+    font: inherit; font-size: 13px; font-weight: 800; text-transform: uppercase; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--shadow-col);
+  }
+  .filter-chip .x { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: #0B0B0C; color: var(--accent); }
+  .filter-chip .x svg { width: 14px; height: 14px; }
+}
+
+/* ============================================================
    ACCESIBILIDAD
    ============================================================ */
 .sr-only {

@@ -1392,6 +1392,18 @@ body[data-section="wish"] {
 .filter-chip[data-clear="rating"][data-band="mid"]::before { background: var(--score-mid); }
 .filter-chip[data-clear="rating"][data-band="low"]::before { background: var(--score-low); }
 
+/* título grande (COMPLETADOS / WISHLIST): altura de línea normal para que las letras
+   no suban sobre las pestañas en ningún navegador, aire fijo arriba y nunca más ancho que la pantalla */
+.masthead h2 { line-height: 1; padding-top: 4px; margin-top: 6px; }
+.masthead-top { margin-bottom: 20px; }
+@media (max-width: 640px) {
+  .section-tabs { margin-bottom: 18px; }
+  .masthead h2 { font-size: min(15vw, 86px); margin-top: 4px; }
+}
+@media (max-width: 430px) {
+  .masthead h2 { font-size: min(14.5vw, 64px); }
+}
+
 /* ============================================================
    ACCESIBILIDAD
    ============================================================ */

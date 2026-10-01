@@ -278,6 +278,7 @@
     pad: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4M8 9v4M15 11h.01M18 13h.01"/><rect x="2" y="6" width="20" height="12" rx="5"/></svg>',
     flame: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.2 1-3.6 2-4.6.3 1.6 1.2 2.6 2.2 2.6C11 8.5 11 5.5 12 3z"/></svg>',
     check: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+    flag: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>',
     play: '<svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
   };
@@ -464,7 +465,7 @@
     </article>`;
   }
 
-  // juego en curso: horas y desde cuándo; su siguiente paso es "¡Terminado!"
+  // juego en curso: horas y desde cuándo; su siguiente paso es "Lo terminé" (celeste: lleva a Completados)
   function playCardHTML(w) {
     const since = w.startedAt ? new Date(w.startedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
     return `<article class="card play-card" data-wid="${w.id}">
@@ -482,7 +483,7 @@
           <span class="card-hours">${I.clock}${w.hours || 0}h</span>
           ${since ? `<span class="foot-sep"></span><span class="card-year">desde ${since}</span>` : ''}
         </div>
-        <div class="card-foot"><button type="button" class="step-cta finish" data-complete="${w.id}" data-stop>${I.check} ¡Terminado!</button></div>
+        <div class="card-foot"><button type="button" class="step-cta finish" data-complete="${w.id}" data-stop>${I.flag} Lo terminé</button></div>
         ${cardLinks(w.title)}
       </div>
     </article>`;
@@ -849,7 +850,7 @@
     if (!w) return;
     editingId = null;
     completingWish = w;
-    fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Terminado!');
+    fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Lo terminé!');
     $('#f_note').value = '';
     setNoteOpen(false);
     setTimeout(() => $('#f_hours').focus(), 60);
@@ -972,7 +973,7 @@
       const linked = await DB.updateWish(w.id, { ...w, completedGameId: game.id });
       const i = wishlist.indexOf(w);
       if (i >= 0) wishlist[i] = linked;
-      toast('¡Terminado! Ya está en Completados');
+      toast('¡Listo! Ya está en Completados');
     } catch (e) {
       console.error(e);
       toast('Se guardó en Completados, pero no se pudo sacar de Jugando');

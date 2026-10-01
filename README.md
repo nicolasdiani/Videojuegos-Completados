@@ -36,7 +36,7 @@ herramientas/              exportar los datos de la versión anterior (localStor
 - **Wishlist:** tabla `wishlist` con prioridad (`alta` = "Muchas ganas", `normal` = "Algún día"). Al completar un pendiente se crea
   el juego en `games` y el pendiente queda enlazado (`completed_game_id`); si se borra ese juego, vuelve a pendiente.
 - **Recorrido Wishlist → Jugando → Completados:** cada juego está en una sola sección. "▶ Empezar" pasa un pendiente a
-  `status = jugando` (con `started_at` y `hours`); "✓ ¡Terminado!" crea el juego en `games` con esas horas y lo enlaza.
+  `status = jugando` (con `started_at` y `hours`); "Lo terminé" crea el juego en `games` con esas horas y lo enlaza.
   Si se borra el completado, vuelve a donde estaba (Jugando o Wishlist).
 - **Carátulas subidas:** se reducen a 800px (JPEG) en el navegador y se suben al bucket `covers/<user_id>/`.
 - **Tema claro/oscuro:** preferencia local del navegador.

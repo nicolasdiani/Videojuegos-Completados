@@ -287,6 +287,7 @@
   --lime: #4FE08A;
   --orange: #FF8A3D;
   --purple: #A06CF5;
+  --danger: #E5383B;     /* borrar */
 
   --r: 18px;
   --r-sm: 12px;
@@ -773,13 +774,13 @@ a { color: inherit; text-decoration: none; }
 .cover-controls .hint { text-align: left; font-size: 12.5px; margin-top: 0; }
 
 .modal-foot { display: flex; align-items: center; gap: 12px; padding: 15px 28px 18px; border-top: var(--bw) solid var(--line); position: sticky; bottom: 0; background: var(--paper); }
-.btn-danger { margin-left: auto; color: var(--text); font-weight: 800; font-size: 14px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; padding: 0 18px; height: 50px; border-radius: var(--r-pill); border: var(--bw) solid var(--line); background: var(--orange); box-shadow: 3px 3px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s; }
+.btn-danger { margin-left: auto; color: #fff; font-weight: 800; font-size: 14px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; padding: 0 18px; height: 50px; border-radius: var(--r-pill); border: var(--bw) solid var(--line); background: var(--danger); box-shadow: 3px 3px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s; }
 .btn-danger:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow-col); }
 .btn-danger:active { transform: translate(3px,3px); box-shadow: 0 0 0 var(--shadow-col); }
 .btn-secondary { height: 50px; padding: 0 24px; border-radius: var(--r-pill); border: var(--bw) solid var(--line); background: var(--paper-2); font-weight: 800; font-size: 15px; text-transform: uppercase; box-shadow: 3px 3px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s; }
 .btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow-col); }
 .btn-secondary:active { transform: translate(3px,3px); box-shadow: 0 0 0 var(--shadow-col); }
-.btn-primary { height: 50px; padding: 0 28px; border-radius: var(--r-pill); background: var(--accent-2); color: #0B0B0C; font-weight: 900; font-size: 15px; text-transform: uppercase; border: var(--bw) solid var(--line); box-shadow: 4px 4px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s; }
+.btn-primary { height: 50px; padding: 0 28px; border-radius: var(--r-pill); background: var(--lime); color: #0B0B0C; font-weight: 900; font-size: 15px; text-transform: uppercase; border: var(--bw) solid var(--line); box-shadow: 4px 4px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s; }
 .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--shadow-col); }
 .btn-primary:active { transform: translate(4px,4px); box-shadow: 0 0 0 var(--shadow-col); }
 
@@ -836,8 +837,8 @@ a { color: inherit; text-decoration: none; }
 .modal-backdrop.open .confirm-modal { transform: rotate(-1.5deg); }
 .confirm-icon {
   width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 20px;
-  display: grid; place-items: center; color: #0B0B0C;
-  background: var(--orange); border: var(--bw) solid var(--line);
+  display: grid; place-items: center; color: #fff;
+  background: var(--danger); border: var(--bw) solid var(--line);
   box-shadow: 4px 4px 0 var(--shadow-col); transform: rotate(-5deg);
 }
 .confirm-icon svg { width: 36px; height: 36px; }
@@ -848,7 +849,7 @@ a { color: inherit; text-decoration: none; }
 .confirm-actions .btn-secondary { flex: 1; }
 .btn-confirm-del {
   flex: 1; height: 46px; padding: 0 20px; border-radius: var(--r-pill);
-  background: var(--orange); color: #0B0B0C; font-weight: 900; font-size: 14px; text-transform: uppercase;
+  background: var(--danger); color: #fff; font-weight: 900; font-size: 14px; text-transform: uppercase;
   border: var(--bw) solid var(--line); box-shadow: 4px 4px 0 var(--shadow-col);
   transition: transform .12s cubic-bezier(.3,.9,.3,1.2), box-shadow .12s;
 }
@@ -959,6 +960,7 @@ a { color: inherit; text-decoration: none; }
   .cover-pick { gap: 12px; }
   .cover-preview { width: 120px; }
   .confirm-actions { flex-direction: column-reverse; }
+  .confirm-actions > * { flex: none; min-height: 46px; }
 }
 
 /* ============================================================

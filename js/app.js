@@ -600,18 +600,22 @@
 
   /* ---------- Mi Top 10 ---------- */
   // Ordena por nota; los empates comparten puesto (1, 1, 3…) y, si hay empate en el 10, entran todos.
-  // Respeta el filtro de año.
-  function topList() {
+  // Respeta el filtro de año. "Ver 10 más" amplía de a 10 hasta 100.
+  const TOP_STEP = 10, TOP_MAX = 100;
+  let topLimit = TOP_STEP;
+  function topList(limit = TOP_STEP) {
     const rated = games.filter(inActiveYear).filter(g => Number(g.rating) > 0)
       .sort((a, b) => b.rating - a.rating || (a.title || '').localeCompare(b.title || ''));
     const out = [];
     let rank = 0;
     rated.forEach((g, i) => {
       if (i === 0 || g.rating !== rated[i - 1].rating) rank = i + 1;
-      if (rank <= 10) out.push({ g, rank });
+      if (rank <= limit) out.push({ g, rank });
     });
     const perRank = out.reduce((m, x) => (m[x.rank] = (m[x.rank] || 0) + 1, m), {});
-    return out.map(x => ({ ...x, tie: perRank[x.rank] > 1 }));
+    const list = out.map(x => ({ ...x, tie: perRank[x.rank] > 1 }));
+    list.more = rated.length > out.length && limit < TOP_MAX;
+    return list;
   }
 
   function renderTop10Button() {
@@ -622,7 +626,14 @@
   }
 
   function openTop10() {
-    const top = topList();
+    topLimit = TOP_STEP;
+    renderTop10();
+    openDialog($('#top10Backdrop'));
+    setTimeout(() => $('#btnCloseTop10').focus(), 60);
+  }
+  function renderTop10() {
+    const top = topList(topLimit);
+    $('#top10Title').textContent = 'Mi Top ' + topLimit;
     $('#top10Sub').textContent = activeYear === 'all' ? 'De todos los años' : 'Año ' + activeYear;
     const list = $('#top10List');
     if (!top.length) {
@@ -631,7 +642,7 @@
       list.innerHTML = top.map(({ g, rank, tie }) => {
         const medal = rank <= 3 ? ` medal-${rank}` : '';
         const meta = [g.platform, fmtDate(g.date)].filter(x => x && x !== '—').join(' · ');
-        return `<li class="t10-item rank-${rank}${medal}">
+        return `<li class="t10-item rank-${rank}${medal}${rank >= 100 ? ' rank-3d' : ''}">
           <button type="button" class="t10-row" data-id="${g.id}" aria-label="Puesto ${rank}${tie ? ' (empate)' : ''}: ${escapeAttr(g.title)}, nota ${fmtRating(g.rating)}. Editar">
             <span class="t10-rank" aria-hidden="true">${rank}${tie ? '<small>=</small>' : ''}</span>
             <span class="mini-cover" aria-hidden="true">${coverHTML(g)}</span>
@@ -641,8 +652,15 @@
         </li>`;
       }).join('');
     }
-    openDialog($('#top10Backdrop'));
-    setTimeout(() => $('#btnCloseTop10').focus(), 60);
+    $('#btnTopMore').hidden = !top.more;
+  }
+  // suma 10 puestos y lleva el foco al primero nuevo
+  function moreTop10() {
+    const shown = $$('#top10List .t10-row').length;
+    topLimit = Math.min(TOP_MAX, topLimit + TOP_STEP);
+    renderTop10();
+    const next = $$('#top10List .t10-row')[shown];
+    if (next) { next.focus(); next.scrollIntoView({ block: 'nearest' }); }
   }
   function closeTop10() { closeDialog($('#top10Backdrop')); }
 
@@ -1068,6 +1086,7 @@
     // Mi Top 10: tocar un juego lo abre para editar
     $('#btnTop10').addEventListener('click', openTop10);
     $('#btnCloseTop10').addEventListener('click', closeTop10);
+    $('#btnTopMore').addEventListener('click', moreTop10);
     $('#top10Backdrop').addEventListener('click', e => { if (e.target.id === 'top10Backdrop') closeTop10(); });
     $('#top10List').addEventListener('click', e => {
       const row = e.target.closest('.t10-row');

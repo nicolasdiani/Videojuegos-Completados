@@ -1317,6 +1317,16 @@ body[data-section="play"] {
 .top10-modal { max-width: 520px; }
 .top10-sub { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 2px; }
 .top10-list { list-style: none; display: grid; gap: 10px; padding: 2px 4px 6px 0; }
+.rank-3d .t10-rank { font-size: 24px; }
+.top-more {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin: 8px 0 4px;
+  border: 3px solid var(--line); border-radius: var(--r-sm); background: var(--yellow); color: #0B0B0C;
+  box-shadow: 3px 3px 0 var(--shadow-col); font: inherit; font-weight: 900; font-size: 15px; text-transform: uppercase;
+  letter-spacing: .03em; cursor: pointer; transition: transform .12s, box-shadow .12s;
+}
+.top-more:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow-col); }
+.top-more:active { transform: translate(3px,3px); box-shadow: 0 0 0 var(--shadow-col); }
+.top-more[hidden] { display: none; }
 .top10-empty { text-align: center; padding: 24px 10px; font-weight: 700; color: var(--muted); }
 .t10-row {
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; min-height: 72px;

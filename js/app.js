@@ -599,8 +599,9 @@
   }
 
   /* ---------- Mi Top 10 ---------- */
-  // Ordena por nota; los empates comparten puesto (1, 1, 3…) y, si hay empate en el 10, entran todos.
-  // Respeta el filtro de año. "Ver 10 más" amplía de a 10 hasta 100.
+  // Ordena por nota; los empates comparten puesto y el siguiente sigue en orden (1, 2, 2, 3…).
+  // El Top 10 muestra los puestos 1 a 10 (con todos sus empates). Respeta el filtro de año.
+  // "Ver 10 más" suma 10 puestos, hasta el 100.
   const TOP_STEP = 10, TOP_MAX = 100;
   let topLimit = TOP_STEP;
   function topList(limit = TOP_STEP) {
@@ -609,7 +610,7 @@
     const out = [];
     let rank = 0;
     rated.forEach((g, i) => {
-      if (i === 0 || g.rating !== rated[i - 1].rating) rank = i + 1;
+      if (i === 0 || g.rating !== rated[i - 1].rating) rank++;
       if (rank <= limit) out.push({ g, rank });
     });
     const perRank = out.reduce((m, x) => (m[x.rank] = (m[x.rank] || 0) + 1, m), {});

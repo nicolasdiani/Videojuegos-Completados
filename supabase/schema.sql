@@ -153,7 +153,12 @@ create table if not exists public.wishlist (
   rawg_slug         text not null default '',
   release_year      text not null default '',
   priority          text not null default 'normal' check (priority in ('alta', 'normal')),
-  -- al completarlo se enlaza con el juego creado en "games"; si ese juego se borra, vuelve a pendiente
+  -- recorrido: pendiente → jugando → completado (ver migrations/003_jugando.sql)
+  status            text not null default 'pendiente' constraint wishlist_status_check check (status in ('pendiente', 'jugando')),
+  started_at        timestamptz,
+  hours             numeric not null default 0 constraint wishlist_hours_check check (hours >= 0),
+  -- al completarlo se enlaza con el juego creado en "games" y deja de mostrarse;
+  -- si ese juego se borra, vuelve a su estado (pendiente o jugando)
   completed_game_id uuid references public.games (id) on delete set null,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()

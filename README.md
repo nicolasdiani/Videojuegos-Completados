@@ -1,6 +1,6 @@
 # Videojuegos completados
 
-Registro de videojuegos terminados (nota, horas, plataforma, año, carátula y comentario) y wishlist de pendientes.
+Registro de videojuegos terminados (nota, horas, plataforma, año, carátula y comentario) , juegos en curso y wishlist de pendientes.
 Cada usuario tiene su propia lista en la nube; se entra con Google y solo por invitación.
 Autocompletado de datos con la API de [RAWG](https://rawg.io/apidocs).
 
@@ -19,7 +19,7 @@ js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invit
 js/app.js                  lógica de la interfaz (JS vanilla)
 fonts/                     Anton + Archivo (woff2, servidas localmente)
 privacidad.html            política de privacidad y condiciones (la pide Google OAuth)
-supabase/migrations/       cambios de base para proyectos ya creados (002: wishlist)
+supabase/migrations/       cambios de base para proyectos ya creados (002: wishlist, 003: jugando)
 supabase/schema.sql        tablas, reglas de acceso (RLS), hook de invitados, bucket de carátulas
 supabase/functions/        Edge Function rawg-search (búsqueda con la clave como secreto)
 herramientas/              exportar los datos de la versión anterior (localStorage)
@@ -35,6 +35,9 @@ herramientas/              exportar los datos de la versión anterior (localStor
 - **Juegos:** tabla `games`, cada fila con `user_id`; cada usuario solo ve y edita los suyos.
 - **Wishlist:** tabla `wishlist` con prioridad (`alta` = "Muchas ganas", `normal` = "Algún día"). Al completar un pendiente se crea
   el juego en `games` y el pendiente queda enlazado (`completed_game_id`); si se borra ese juego, vuelve a pendiente.
+- **Recorrido Wishlist → Jugando → Completados:** cada juego está en una sola sección. "▶ Empezar" pasa un pendiente a
+  `status = jugando` (con `started_at` y `hours`); "✓ ¡Terminado!" crea el juego en `games` con esas horas y lo enlaza.
+  Si se borra el completado, vuelve a donde estaba (Jugando o Wishlist).
 - **Carátulas subidas:** se reducen a 800px (JPEG) en el navegador y se suben al bucket `covers/<user_id>/`.
 - **Tema claro/oscuro:** preferencia local del navegador.
 

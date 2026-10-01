@@ -1082,8 +1082,14 @@ body:not(.locked) .gate { display: none; }
    SECCIONES — Completados / Wishlist
    ============================================================ */
 /* visibilidad por sección (toolbar) y por modo del formulario */
-body[data-section="wish"] .s-done, body:not([data-section="wish"]) .s-wish { display: none !important; }
-.modal-backdrop[data-mode="wish"] .m-done, .modal-backdrop:not([data-mode="wish"]) .m-wish { display: none !important; }
+body:not([data-section="done"]) .s-done, body:not([data-section="wish"]) .s-wish { display: none !important; }
+/* formulario: m-done = solo Completados · m-wish = solo Wishlist · m-play = solo Jugando ·
+   m-hours = Completados y Jugando · m-editing = solo al editar algo que ya existe */
+.modal-backdrop:not([data-mode="done"]) .m-done,
+.modal-backdrop:not([data-mode="wish"]) .m-wish,
+.modal-backdrop:not([data-mode="play"]) .m-play,
+.modal-backdrop[data-mode="wish"] .m-hours,
+.modal-backdrop:not([data-editing="1"]) .m-editing { display: none !important; }
 
 /* la wishlist tiñe todo de rosa: se intercambian los acentos */
 body[data-section="wish"] {
@@ -1094,8 +1100,17 @@ body[data-section="wish"] {
 :root:not([data-theme="dark"]) body[data-section="wish"] { --bg: #FFE4F5; --bg-2: #FFD3EE; --paper-2: #FFF3FB; }
 [data-theme="dark"] body[data-section="wish"] { --bg: #180C15; --bg-2: #12090F; --paper: #24141F; --paper-2: #2D1A27; }
 
+/* Jugando: amarillo y naranja */
+body[data-section="play"] {
+  --accent: #FFD23F;
+  --accent-2: #FF8A3D;
+  --sun: #FFB020;
+}
+:root:not([data-theme="dark"]) body[data-section="play"] { --bg: #FFF4D1; --bg-2: #FFEAB0; --paper-2: #FFFBEC; }
+[data-theme="dark"] body[data-section="play"] { --bg: #16130A; --bg-2: #100E07; --paper: #221D10; --paper-2: #2B2515; }
+
 .section-tabs {
-  display: inline-grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px;
+  display: inline-grid; grid-template-columns: repeat(3, auto); gap: 6px; padding: 5px;
   background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--r-pill);
   box-shadow: 4px 4px 0 var(--shadow-col); margin-bottom: 22px; position: relative; z-index: 2;
 }
@@ -1124,7 +1139,7 @@ body[data-section="wish"] {
   transform: rotate(-6deg);
 }
 .prio-chip .icon-sm { width: 15px; height: 15px; flex: none; }
-.prio-chip { white-space: nowrap; max-width: calc(100% - 20px); }
+.prio-chip { white-space: nowrap; max-width: calc(100% - 14px); }
 .wish-card.is-done .cover img, .wish-card.is-done .cover-gen { filter: grayscale(1) contrast(.9); opacity: .55; }
 .wish-card.is-done .card-title { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted); }
 .done-stamp {
@@ -1166,7 +1181,7 @@ body[data-section="wish"] {
 }
 @media (max-width: 430px) {
   .section-tab .icon-sm { display: none; }
-  .prio-chip { top: 9px; left: 9px; height: 28px; padding: 0 8px; font-size: 12px; gap: 4px; letter-spacing: 0; }
+  .prio-chip, .playing-chip { top: 8px; left: 8px; height: 26px; padding: 0 6px; font-size: 12px; gap: 3px; letter-spacing: 0; }
   .prio-chip .icon-sm { width: 13px; height: 13px; }
   .prio-opt { font-size: 12px !important; }
 }
@@ -1335,6 +1350,53 @@ body[data-section="wish"] {
 }
 
 /* ============================================================
+   JUGANDO — tarjetas en curso y botones del recorrido
+   ============================================================ */
+.playing-chip {
+  position: absolute; top: 12px; left: 12px; z-index: 3; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
+  border-radius: var(--r-pill); border: 2.5px solid #0B0B0C; box-shadow: 2px 2px 0 #0B0B0C;
+  background: #FFD23F; color: #0B0B0C; font-size: 12px; font-weight: 900; text-transform: uppercase;
+  transform: rotate(-6deg); white-space: nowrap;
+}
+.playing-chip .icon-sm { width: 13px; height: 13px; }
+/* siguiente paso del recorrido: "Empezar" (wishlist) y "¡Terminado!" (jugando) */
+.step-cta {
+  position: relative; z-index: 3; width: 100%; min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px;
+  border-radius: var(--r-pill); border: 2.5px solid var(--line); color: #0B0B0C; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 900; text-transform: uppercase; white-space: nowrap;
+  box-shadow: 3px 3px 0 var(--shadow-col); transition: transform .12s, box-shadow .12s;
+}
+.step-cta:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow-col); }
+.step-cta:active { transform: translate(3px,3px); box-shadow: 0 0 0 var(--shadow-col); }
+.step-cta .icon-sm { width: 15px; height: 15px; flex: none; }
+.step-cta.start { background: #FFD23F; }
+.step-cta.finish { background: var(--score-high); }
+.play-card .card-foot + .card-foot { border-top: 0; padding-top: 0; margin-top: 10px; }
+.form-links { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.back-to-wish { margin-left: auto; text-decoration-color: var(--accent-2); }
+
+/* tres pestañas: en el celular ocupan todo el ancho en partes iguales */
+@media (max-width: 640px) {
+  .section-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 22px; }
+  /* nombre arriba y contador abajo: así "COMPLETADOS" entra en un tercio de pantalla */
+  .section-tab {
+    min-width: 0; height: auto; min-height: 52px; padding: 5px 2px; gap: 3px; border-radius: 16px;
+    flex-direction: column; font-size: 12px; letter-spacing: 0; line-height: 1.1;
+  }
+  .section-tab .icon-sm { display: none; }
+  .tab-count { min-width: 22px; height: 19px; padding: 0 6px; font-size: 11px; border-width: 1.5px; }
+}
+@media (max-width: 374px) {
+  .section-tabs { gap: 2px; padding: 3px; }
+  .section-tab { font-size: 11px; padding: 5px 0; letter-spacing: -.01em; }
+}
+@media (max-width: 339px) {
+  .section-tab { font-size: 10px; }
+}
+
+/* ============================================================
    FILTROS PLEGABLES (celular)
    ============================================================ */
 /* en la computadora el panel no existe como caja: los filtros siguen en la fila de siempre */
@@ -1466,6 +1528,5 @@ h3.card-title { margin: 0; }
 /* pantallas muy angostas (o zoom 200%): pestañas y header sin desbordar */
 @media (max-width: 370px) {
   .brand-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .section-tab { padding: 0 6px; font-size: 12px; gap: 5px; letter-spacing: 0; }
   .tab-count { min-width: 22px; height: 22px; padding: 0 5px; font-size: 12px; }
 }

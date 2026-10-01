@@ -50,9 +50,14 @@
     releaseYear: r.release_year || '',
     priority: r.priority === 'alta' ? 'alta' : 'normal',
     completedGameId: r.completed_game_id || null,
-    createdAt: r.created_at || ''
+    createdAt: r.created_at || '',
+    status: r.status === 'jugando' ? 'jugando' : 'pendiente',
+    startedAt: r.started_at || '',
+    hours: Number(r.hours) || 0
   });
-  const wishToRow = w => ({
+  // los campos de "Jugando" solo se mandan si la base ya tiene la migración 003
+  let playColumns = true;
+  const wishToRow = w => Object.assign({
     title: w.title,
     platform: w.platform || '',
     cover: w.cover || '',
@@ -62,7 +67,11 @@
     release_year: String(w.releaseYear || ''),
     priority: w.priority === 'alta' ? 'alta' : 'normal',
     completed_game_id: w.completedGameId || null
-  });
+  }, playColumns ? {
+    status: w.status === 'jugando' ? 'jugando' : 'pendiente',
+    started_at: w.startedAt || null,
+    hours: Math.max(0, Number(w.hours) || 0)
+  } : {});
 
   function must(res) {
     if (res.error) throw res.error;
@@ -155,6 +164,12 @@
     },
     async deleteWish(id) {
       must(await sb.from('wishlist').delete().eq('id', id));
+    },
+    // ¿la base ya tiene las columnas de "Jugando"? (migración 003)
+    async checkPlaying() {
+      const { error } = await sb.from('wishlist').select('status').limit(1);
+      playColumns = !error;
+      return playColumns;
     },
 
     /* ---------- carátulas subidas ---------- */

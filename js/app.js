@@ -16,14 +16,15 @@
   /* ---------- estado ---------- */
   let games = [];
   let wishlist = [];      // juegos pendientes
-  let section = 'done';   // 'done' (Completados) | 'wish' (Wishlist)
+  let section = 'done';   // 'done' (Completados) | 'play' (Jugando) | 'wish' (Wishlist)
   let activeYear = 'all';
   const filters = { q: '', platform: 'all', rating: 'all', priority: 'all', sort: 'date' }; // rating: all | high | mid | low (color de la nota)
   let me = null;          // { email, name, avatar, admin }
 
   /* ---------- persistencia (Supabase) ---------- */
   // si la tabla de wishlist no existe todavía (falta correr la migración), Completados sigue andando
-  let wishlistReady = true;
+  // y si falta la migración de "Jugando" (003), Wishlist y Completados siguen andando
+  let wishlistReady = true, playReady = true;
   async function loadGames() {
     const [g, w] = await Promise.all([
       DB.listGames(),
@@ -32,6 +33,7 @@
     games = g;
     wishlist = w || [];
     wishlistReady = !!w;
+    playReady = wishlistReady ? await DB.checkPlaying().catch(() => false) : false;
   }
 
   /* ---------- utilidades ---------- */
@@ -276,6 +278,7 @@
     pad: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4M8 9v4M15 11h.01M18 13h.01"/><rect x="2" y="6" width="20" height="12" rx="5"/></svg>',
     flame: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.2 1-3.6 2-4.6.3 1.6 1.2 2.6 2.2 2.6C11 8.5 11 5.5 12 3z"/></svg>',
     check: '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+    play: '<svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
     plus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
   };
 
@@ -298,35 +301,54 @@
     el.value = activeYear;
   }
 
+  /* ---------- recorrido: Wishlist → Jugando → Completados ----------
+     Un pendiente vive en "wishlist" con status 'pendiente' o 'jugando'. Al terminarlo se crea el
+     juego en "games" y el pendiente queda enlazado (completedGameId): ya no se muestra en ninguna
+     sección, así cada juego está en un solo lugar. */
+  const isOpenWish = w => !w.completedGameId;
+  const pendingList = () => wishlist.filter(w => isOpenWish(w) && w.status !== 'jugando');
+  const playingList = () => wishlist.filter(w => isOpenWish(w) && w.status === 'jugando');
+
   /* ---------- render: stats ---------- */
-  // en el celular la segunda palabra baja de línea (ver .stat .label span); \u00AD = guion suave
+  // en el celular la segunda palabra baja de línea (ver .stat .label span); ­ = guion suave
   const STAT_LABEL = {
-    terminados: 'Juegos <span>termi\u00ADnados</span>',
+    terminados: 'Juegos <span>termi­nados</span>',
     horas: 'Horas <span>jugadas</span>',
     media: 'Nota <span>media</span>',
-    pendientes: 'Juegos <span>pendien\u00ADtes</span>',
+    pendientes: 'Juegos <span>pendien­tes</span>',
     ganas: 'Muchas <span>ganas</span>',
-    completados: 'Ya <span>pasados</span>' // como el sello "¡Pasado!" de las tarjetas
+    algunDia: 'Algún <span>día</span>',
+    enCurso: 'Juegos <span>en curso</span>',
+    promedio: 'Horas <span>promedio</span>'
   };
+  function setStatLabels(a, b, c) {
+    $('#statLabel1').innerHTML = a; $('#statLabel2').innerHTML = b; $('#statLabel3').innerHTML = c;
+  }
   function renderStats() {
+    $('#statAvg').closest('.stat').dataset.band = '';
     if (section === 'wish') {
-      const pend = wishlist.filter(w => !w.completedGameId);
-      $('#statLabel1').innerHTML = STAT_LABEL.pendientes;
-      $('#statLabel2').innerHTML = STAT_LABEL.ganas;
-      $('#statLabel3').innerHTML = STAT_LABEL.completados;
+      const pend = pendingList();
+      const alta = pend.filter(w => w.priority === 'alta').length;
+      setStatLabels(STAT_LABEL.pendientes, STAT_LABEL.ganas, STAT_LABEL.algunDia);
       $('#statCount').textContent = pend.length;
-      $('#statHours').textContent = pend.filter(w => w.priority === 'alta').length;
-      $('#statAvg').textContent = wishlist.length - pend.length;
-      $('#statAvg').closest('.stat').dataset.band = '';
+      $('#statHours').textContent = alta;
+      $('#statAvg').textContent = pend.length - alta;
+      return;
+    }
+    if (section === 'play') {
+      const play = playingList();
+      const hrs = play.reduce((s, w) => s + (Number(w.hours) || 0), 0);
+      setStatLabels(STAT_LABEL.enCurso, STAT_LABEL.horas, STAT_LABEL.promedio);
+      $('#statCount').textContent = play.length;
+      $('#statHours').innerHTML = `${hrs}<small>h</small>`;
+      $('#statAvg').innerHTML = play.length ? `${Math.round(hrs / play.length)}<small>h</small>` : '—';
       return;
     }
     const list = games.filter(inActiveYear);
     const hrs = list.reduce((s, g) => s + (Number(g.hours) || 0), 0);
     const rated = list.filter(g => Number(g.rating) > 0);
     const avg = rated.length ? (rated.reduce((s, g) => s + Number(g.rating), 0) / rated.length) : 0;
-    $('#statLabel1').innerHTML = STAT_LABEL.terminados;
-    $('#statLabel2').innerHTML = STAT_LABEL.horas;
-    $('#statLabel3').innerHTML = STAT_LABEL.media;
+    setStatLabels(STAT_LABEL.terminados, STAT_LABEL.horas, STAT_LABEL.media);
     $('#statCount').textContent = list.length;
     $('#statHours').innerHTML = `${hrs}<small>h</small>`;
     $('#statAvg').innerHTML = avg ? `${avg.toFixed(1)}<small>/10</small>` : '—';
@@ -336,7 +358,7 @@
 
   /* ---------- render: filtros de plataforma ---------- */
   function renderPlatformFilter() {
-    const source = section === 'wish' ? wishlist : games;
+    const source = section === 'wish' ? pendingList() : section === 'play' ? playingList() : games;
     const used = Array.from(new Set(source.map(g => g.platform).filter(Boolean))).sort();
     const sel = $('#filterPlatform');
     const cur = filters.platform;
@@ -368,13 +390,20 @@
     return list;
   }
 
-  // pendientes primero; dentro, "muchas ganas" arriba y lo más nuevo antes
+  // "muchas ganas" arriba y lo más nuevo antes
   function currentWishList() {
-    let list = wishlist.filter(matchesText);
+    let list = pendingList().filter(matchesText);
     if (filters.platform !== 'all') list = list.filter(w => w.platform === filters.platform);
     if (filters.priority !== 'all') list = list.filter(w => w.priority === filters.priority);
-    const rank = w => (w.completedGameId ? 2 : 0) + (w.priority === 'alta' ? 0 : 1);
+    const rank = w => (w.priority === 'alta' ? 0 : 1);
     return list.sort((a, b) => rank(a) - rank(b) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+
+  // lo último que empezaste, primero
+  function currentPlayList() {
+    let list = playingList().filter(matchesText);
+    if (filters.platform !== 'all') list = list.filter(w => w.platform === filters.platform);
+    return list.sort((a, b) => (b.startedAt || b.createdAt || '').localeCompare(a.startedAt || a.createdAt || ''));
   }
 
   function coverHTML(g) {
@@ -415,26 +444,45 @@
     </article>`;
   }
 
+  // pendiente de la wishlist: su siguiente paso es "Empezar"
   function wishCardHTML(w) {
-    const done = w.completedGameId ? games.find(g => g.id === w.completedGameId) : null;
-    const prio = !done && w.priority === 'alta' ? `<div class="prio-chip">${I.flame} Muchas ganas</div>` : '';
-    const foot = done
-      ? `<span class="wish-done-info">${I.check} ${fmtDate(done.date)}${done.rating ? ` · ${I.star} ${fmtRating(done.rating)}` : ''}</span>`
-      : `<button type="button" class="wish-complete" data-complete="${w.id}" data-stop>${I.check} Completar</button>`;
-
-    return `<article class="card wish-card${done ? ' is-done' : ''}" data-wid="${w.id}">
+    const prio = w.priority === 'alta' ? `<div class="prio-chip">${I.flame} Muchas ganas</div>` : '';
+    return `<article class="card wish-card" data-wid="${w.id}">
       <div class="card-cover">
         ${coverHTML(w)}
         ${prio}
-        ${done ? '<div class="done-stamp" aria-hidden="true">¡Pasado!</div>' : ''}
       </div>
       <div class="card-info">
-        <h3 class="card-title"><button type="button" class="card-open" aria-label="Editar pendiente ${escapeAttr(w.title)}${done ? ' (completado)' : ''}">${escapeHTML(w.title)}</button></h3>
+        <h3 class="card-title"><button type="button" class="card-open" aria-label="Editar pendiente ${escapeAttr(w.title)}">${escapeHTML(w.title)}</button></h3>
         <div class="card-meta">
           ${w.platform ? `<span class="tag">${escapeHTML(w.platform)}</span>` : ''}
           ${w.mc ? mcBadge(w.mc, true) : ''}
         </div>
-        <div class="card-foot">${foot}</div>
+        <div class="card-foot"><button type="button" class="step-cta start" data-start="${w.id}" data-stop>${I.play} Empezar</button></div>
+        ${cardLinks(w.title)}
+      </div>
+    </article>`;
+  }
+
+  // juego en curso: horas y desde cuándo; su siguiente paso es "¡Terminado!"
+  function playCardHTML(w) {
+    const since = w.startedAt ? new Date(w.startedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
+    return `<article class="card play-card" data-wid="${w.id}">
+      <div class="card-cover">
+        ${coverHTML(w)}
+        <div class="playing-chip">${I.play} Jugando</div>
+      </div>
+      <div class="card-info">
+        <h3 class="card-title"><button type="button" class="card-open" aria-label="Editar ${escapeAttr(w.title)} (jugando, ${w.hours || 0} horas)">${escapeHTML(w.title)}</button></h3>
+        <div class="card-meta">
+          ${w.platform ? `<span class="tag">${escapeHTML(w.platform)}</span>` : ''}
+          ${w.mc ? mcBadge(w.mc, true) : ''}
+        </div>
+        <div class="card-foot">
+          <span class="card-hours">${I.clock}${w.hours || 0}h</span>
+          ${since ? `<span class="foot-sep"></span><span class="card-year">desde ${since}</span>` : ''}
+        </div>
+        <div class="card-foot"><button type="button" class="step-cta finish" data-complete="${w.id}" data-stop>${I.check} ¡Terminado!</button></div>
         ${cardLinks(w.title)}
       </div>
     </article>`;
@@ -482,38 +530,46 @@
     renderStats();
     renderActiveFilters();
     const grid = $('#grid');
-    const wish = section === 'wish';
-    const list = wish ? currentWishList() : currentList();
 
-    if (wish && !wishlistReady) {
+    if (section !== 'done' && !wishlistReady) {
       grid.innerHTML = emptyHTML('Wishlist sin activar', 'Falta crear la tabla en Supabase: corre supabase/migrations/002_wishlist.sql (ver SETUP.md).', false);
       return;
     }
-    if (list.length === 0) {
-      const filtered = wish ? wishlist.length > 0 : games.filter(inActiveYear).length > 0;
-      grid.innerHTML = filtered
-        ? emptyHTML('Sin resultados', 'Prueba a cambiar los filtros o el buscador.', false)
-        : wish
-          ? emptyHTML('Tu wishlist está vacía', 'Guarda aquí los juegos que tienes ganas de jugar.', true, 'Añadir el primero')
-          : emptyHTML(`Aún no hay juegos en ${activeYear === 'all' ? 'tu lista' : activeYear}`, 'Empieza a registrar los juegos que has terminado.', true, 'Añadir el primero');
-      const ea = $('#emptyAdd');
-      if (ea) ea.addEventListener('click', () => wish ? openWishModal() : openModal());
+    if (section === 'play' && !playReady) {
+      grid.innerHTML = emptyHTML('Jugando sin activar', 'Falta un paso en Supabase: corre supabase/migrations/003_jugando.sql (ver SETUP.md).', false);
       return;
     }
-    grid.innerHTML = list.map(wish ? wishCardHTML : cardHTML).join('');
+    const list = section === 'wish' ? currentWishList() : section === 'play' ? currentPlayList() : currentList();
+    if (list.length === 0) {
+      const total = section === 'wish' ? pendingList().length : section === 'play' ? playingList().length : games.filter(inActiveYear).length;
+      grid.innerHTML = total > 0
+        ? emptyHTML('Sin resultados', 'Prueba a cambiar los filtros o el buscador.', false)
+        : section === 'wish'
+          ? emptyHTML('Tu wishlist está vacía', 'Guarda aquí los juegos que tienes ganas de jugar.', true, 'Añadir el primero')
+          : section === 'play'
+            ? emptyHTML('No estás jugando nada', 'Toca "Empezar" en un juego de tu wishlist, o empieza uno nuevo.', true, 'Empezar un juego')
+            : emptyHTML(`Aún no hay juegos en ${activeYear === 'all' ? 'tu lista' : activeYear}`, 'Empieza a registrar los juegos que has terminado.', true, 'Añadir el primero');
+      const ea = $('#emptyAdd');
+      if (ea) ea.addEventListener('click', openAddForSection);
+      return;
+    }
+    const render = section === 'wish' ? wishCardHTML : section === 'play' ? playCardHTML : cardHTML;
+    grid.innerHTML = list.map(render).join('');
     // animación de entrada escalonada
     grid.classList.remove('anim'); void grid.offsetWidth; grid.classList.add('anim');
     $$('.card', grid).forEach((c, i) => { c.style.animationDelay = Math.min(i * 45, 600) + 'ms'; });
   }
 
   /* ---------- marquesina ---------- */
+  const MARQUEE = {
+    done: ['Tus partidas', 'Completados', 'Howlongtobeat', 'Metacritic', 'Nivel completado', 'Game over', 'Play hard'],
+    play: ['Jugando', 'Partida en curso', 'Checkpoint', 'Continue?', 'Player 1', 'Guardando…', 'Un nivel más'],
+    wish: ['Wishlist', 'Próxima partida', 'Muchas ganas', 'Algún día', 'Press start', 'Insert coin', 'Player 2']
+  };
   function renderMarquee() {
     const track = $('#marqueeTrack');
     if (!track) return;
-    const words = section === 'wish'
-      ? ['Wishlist', 'Próxima partida', 'Muchas ganas', 'Algún día', 'Press start', 'Insert coin', 'Player 2']
-      : ['Tus partidas', 'Completados', 'Howlongtobeat', 'Metacritic', 'Nivel completado', 'Game over', 'Play hard'];
-    const group = `<span>${words.join('</span><span>')}</span>`;
+    const group = `<span>${MARQUEE[section].join('</span><span>')}</span>`;
     track.innerHTML = group + group; // duplicado para bucle continuo
   }
 
@@ -529,12 +585,17 @@
   }
 
   function updateMasthead() {
-    const wish = section === 'wish';
     $('#tabCountDone').textContent = games.length;
-    $('#tabCountWish').textContent = wishlist.filter(w => !w.completedGameId).length;
-    $('#mastTitle').textContent = wish ? 'Wishlist' : 'Completados';
+    $('#tabCountPlay').textContent = playingList().length;
+    $('#tabCountWish').textContent = pendingList().length;
+    $('#mastTitle').textContent = { done: 'Completados', play: 'Jugando', wish: 'Wishlist' }[section];
     renderTop10Button();
-    $('#addCtaText').textContent = wish ? 'Añadir a wishlist' : 'Añadir juego';
+    $('#addCtaText').textContent = { done: 'Añadir juego', play: 'Empezar un juego', wish: 'Añadir a wishlist' }[section];
+  }
+  function openAddForSection() {
+    if (section === 'wish') openWishModal();
+    else if (section === 'play') openPlayModal();
+    else openModal();
   }
 
   /* ---------- Mi Top 10 ---------- */
@@ -587,10 +648,11 @@
 
   /* ---------- secciones ---------- */
   function setSection(next, silent) {
-    section = next === 'wish' ? 'wish' : 'done';
+    section = ['wish', 'play'].includes(next) ? next : 'done';
     try { localStorage.setItem(SECTION_KEY, section); } catch (e) { /* noop */ }
     document.body.dataset.section = section;
     $('#tabDone').setAttribute('aria-selected', String(section === 'done'));
+    $('#tabPlay').setAttribute('aria-selected', String(section === 'play'));
     $('#tabWish').setAttribute('aria-selected', String(section === 'wish'));
     filters.platform = 'all';
     renderMarquee();
@@ -673,6 +735,7 @@
   function fillForm(mode, src, title) {
     modalMode = mode;
     $('#modalBackdrop').dataset.mode = mode;
+    $('#modalBackdrop').dataset.editing = editingId ? '1' : '';
     $('#modalTitle').textContent = title;
     $('#f_title').value = src ? src.title : '';
     $('#f_platform').innerHTML = buildPlatformOptions(src && src.platform ? src.platform : 'PS5');
@@ -682,9 +745,12 @@
     $('#f_cover').value = src ? (src.cover || '') : '';
     const prio = src && src.priority === 'alta' ? 'alta' : 'normal';
     $$('input[name="f_prio"]').forEach(r => { r.checked = r.value === prio; });
-    $('#noteLabel').textContent = mode === 'wish' ? 'Nota' : 'Comentario';
-    $('#noteToggleText').textContent = mode === 'wish' ? 'Añadir nota' : 'Añadir comentario';
-    $('#f_note').placeholder = mode === 'wish' ? 'Por qué lo quieres jugar, quién te lo recomendó…' : 'Lo que te pareció…';
+    const isNote = mode !== 'done';
+    $('#noteLabel').textContent = isNote ? 'Nota' : 'Comentario';
+    $('#noteToggleText').textContent = isNote ? 'Añadir nota' : 'Añadir comentario';
+    $('#f_note').placeholder = mode === 'wish' ? 'Por qué lo quieres jugar, quién te lo recomendó…'
+      : mode === 'play' ? 'Por dónde vas, qué te está pareciendo…' : 'Lo que te pareció…';
+    $('#hoursLabel').textContent = mode === 'play' ? 'Horas hasta ahora' : 'Horas';
     modalExtra = src ? { mc: src.mc || 0, rawgSlug: src.rawgSlug || '', releaseYear: src.releaseYear || '' } : {};
     extraFromAutofill = false;
     $('#autofillBadge').hidden = true;
@@ -720,13 +786,51 @@
     setTimeout(() => $('#f_title').focus(), 60);
   }
 
-  // pasa un pendiente a completados: mismos datos del juego, faltan año, horas, nota y comentario
+  // juego en curso (nuevo o existente)
+  function openPlayModal(id) {
+    if (!wishlistReady || !playReady) { toast('"Jugando" todavía no está activado en la base de datos'); return; }
+    editingId = id || null;
+    completingWish = null;
+    const w = id ? wishlist.find(x => x.id === id) : null;
+    fillForm('play', w, w ? 'Jugando' : 'Empezar un juego');
+    $('#f_note').value = w ? (w.note || '') : '';
+    setNoteOpen(!!$('#f_note').value);
+    setTimeout(() => $(w ? '#f_hours' : '#f_title').focus(), 60);
+  }
+
+  // Wishlist → Jugando
+  async function startPlaying(wishId) {
+    if (!playReady) { toast('"Jugando" todavía no está activado en la base de datos'); return; }
+    const w = wishlist.find(x => x.id === wishId);
+    if (!w) return;
+    try {
+      const saved = await DB.updateWish(w.id, { ...w, status: 'jugando', startedAt: new Date().toISOString() });
+      wishlist[wishlist.indexOf(w)] = saved;
+    } catch (e) { console.error(e); toast('No se pudo empezar — revisa tu conexión'); return; }
+    renderAll();
+    toast(`¡A jugar! ${w.title} está en Jugando`);
+  }
+
+  // Jugando → Wishlist (lo dejaste para más adelante; las horas se conservan)
+  async function backToWishlist() {
+    const w = editingId && wishlist.find(x => x.id === editingId);
+    if (!w) return;
+    try {
+      const saved = await DB.updateWish(w.id, { ...w, status: 'pendiente' });
+      wishlist[wishlist.indexOf(w)] = saved;
+    } catch (e) { console.error(e); toast('No se pudo mover — revisa tu conexión'); return; }
+    renderAll();
+    closeModal();
+    toast(`${w.title} volvió a la wishlist`);
+  }
+
+  // Jugando → Completados: mismos datos y horas que llevabas; faltan año, nota y comentario
   function openCompleteModal(wishId) {
     const w = wishlist.find(x => x.id === wishId);
     if (!w) return;
     editingId = null;
     completingWish = w;
-    fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Completado!');
+    fillForm('done', { ...w, date: String(new Date().getFullYear()), rating: 0 }, '¡Terminado!');
     $('#f_note').value = '';
     setNoteOpen(false);
     setTimeout(() => $('#f_hours').focus(), 60);
@@ -797,6 +901,8 @@
     };
     const data = modalMode === 'wish'
       ? { ...common, priority: ($('input[name="f_prio"]:checked') || {}).value === 'alta' ? 'alta' : 'normal' }
+      : modalMode === 'play'
+      ? { ...common, status: 'jugando', hours: Number($('#f_hours').value) || 0 }
       : {
           ...common,
           date: $('#f_date').value,
@@ -811,7 +917,7 @@
     let uploaded = '';
     try {
       if (pendingCover) data.cover = uploaded = await DB.uploadCover(pendingCover.blob);
-      if (ctx.mode === 'wish') await saveWish(data, ctx);
+      if (ctx.mode === 'wish' || ctx.mode === 'play') await saveWish(data, ctx);
       else await saveGame(data, ctx);
     } catch (e) {
       console.error(e);
@@ -847,10 +953,10 @@
       const linked = await DB.updateWish(w.id, { ...w, completedGameId: game.id });
       const i = wishlist.indexOf(w);
       if (i >= 0) wishlist[i] = linked;
-      toast('¡Completado! Ya está en Completados');
+      toast('¡Terminado! Ya está en Completados');
     } catch (e) {
       console.error(e);
-      toast('Se guardó en Completados, pero no se pudo marcar en la wishlist');
+      toast('Se guardó en Completados, pero no se pudo sacar de Jugando');
     }
   }
 
@@ -860,7 +966,10 @@
       const saved = await DB.updateWish(prev.id, { ...prev, ...data });
       wishlist[wishlist.indexOf(prev)] = saved;
       if (prev.cover !== saved.cover) dropCover(prev.cover, saved);
-      toast('Pendiente actualizado');
+      toast(ctx.mode === 'play' ? 'Guardado' : 'Pendiente actualizado');
+    } else if (ctx.mode === 'play') {
+      wishlist.push(await DB.insertWish({ ...data, startedAt: new Date().toISOString() }));
+      toast('¡A jugar! Está en Jugando');
     } else {
       wishlist.push(await DB.insertWish(data));
       toast('Añadido a la wishlist');
@@ -870,14 +979,13 @@
   let pendingDelete = null; // { kind: 'game' | 'wish', item }
   function deleteCurrent() {
     if (!editingId) return;
-    const kind = modalMode === 'wish' ? 'wish' : 'game';
+    const kind = modalMode === 'done' ? 'game' : 'wish';
     const item = (kind === 'wish' ? wishlist : games).find(x => x.id === editingId);
     if (!item) return;
     pendingDelete = { kind, item };
-    const extra = kind === 'game' && wishlist.some(w => w.completedGameId === item.id)
-      ? ' En la wishlist volverá a quedar como pendiente.'
-      : kind === 'wish' && item.completedGameId ? ' El juego sigue en Completados.' : '';
-    $('#confirmTitle').textContent = kind === 'wish' ? '¿Quitar de la wishlist?' : '¿Borrar este juego?';
+    const origin = kind === 'game' && wishlist.find(w => w.completedGameId === item.id);
+    const extra = origin ? (origin.status === 'jugando' ? ' Volverá a "Jugando".' : ' Volverá a la wishlist.') : '';
+    $('#confirmTitle').textContent = kind === 'game' ? '¿Borrar este juego?' : item.status === 'jugando' ? '¿Quitar de Jugando?' : '¿Quitar de la wishlist?';
     $('#confirmText').innerHTML = `Vas a borrar <b>${escapeHTML(item.title)}</b>.${extra} Esta acción no se puede deshacer.`;
     openDialog($('#confirmBackdrop'));
     setTimeout(() => $('#confirmOk').focus(), 60);
@@ -905,7 +1013,7 @@
     renderAll();
     closeConfirm();
     closeModal();
-    toast(kind === 'wish' ? 'Quitado de la wishlist' : 'Juego borrado');
+    toast(kind === 'wish' ? 'Quitado' : 'Juego borrado');
   }
 
   /* ---------- toast ---------- */
@@ -954,7 +1062,8 @@
       toast('Filtros restablecidos');
     });
 
-    $('#btnAdd').addEventListener('click', () => section === 'wish' ? openWishModal() : openModal());
+    $('#btnAdd').addEventListener('click', openAddForSection);
+    $('#btnBackToWish').addEventListener('click', backToWishlist);
 
     // Mi Top 10: tocar un juego lo abre para editar
     $('#btnTop10').addEventListener('click', openTop10);
@@ -983,11 +1092,17 @@
 
     // grid: tocar la tarjeta (su botón de título la cubre entera) -> editar;
     // los accesos de abajo (links, "Completar") llevan data-stop y hacen lo suyo
-    const openCard = card => card.dataset.wid ? openWishModal(card.dataset.wid) : openModal(card.dataset.id);
+    const openCard = card => {
+      if (!card.dataset.wid) return openModal(card.dataset.id);
+      const w = wishlist.find(x => x.id === card.dataset.wid);
+      return w && w.status === 'jugando' ? openPlayModal(w.id) : openWishModal(card.dataset.wid);
+    };
     $('#grid').addEventListener('click', e => {
       if (e.target.closest('[data-stop]')) {
         const cb = e.target.closest('[data-complete]');
+        const sb = e.target.closest('[data-start]');
         if (cb) { e.preventDefault(); openCompleteModal(cb.dataset.complete); }
+        if (sb) { e.preventDefault(); startPlaying(sb.dataset.start); }
         return;
       }
       const card = e.target.closest('.card');

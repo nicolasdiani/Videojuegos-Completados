@@ -1383,6 +1383,8 @@
 
   const gameKey = g => String(g.title || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 4);
   const wishKey = w => String(w.title || '').trim().toLowerCase();
+  // para no repetir entre secciones: ignora mayúsculas, acentos, ™/® y signos
+  const looseKey = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[™®©]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
   function exportGames() {
     const cleanGames = games.map(({ id, createdAt, ...g }) => g);
@@ -1432,9 +1434,9 @@
     } catch (e) { toast('Ese archivo no es una lista de juegos'); return; }
 
     const haveG = new Set(games.map(gameKey));
-    const haveW = new Set(wishlist.map(wishKey));
+    const haveW = new Set([...wishlist, ...games].map(x => looseKey(x.title)));
     const freshG = gList.filter(g => g && String(g.title || '').trim() && !haveG.has(gameKey(g)));
-    const freshW = wishlistReady ? wList.filter(w => w && String(w.title || '').trim() && !haveW.has(wishKey(w))) : [];
+    const freshW = wishlistReady ? wList.filter(w => w && String(w.title || '').trim() && !haveW.has(looseKey(w.title))) : [];
     const skipped = gList.length - freshG.length + wList.length - freshW.length;
     if (!freshG.length && !freshW.length) { toast(skipped ? 'Todo eso ya estaba en tu lista' : 'El archivo está vacío'); return; }
 

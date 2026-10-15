@@ -1523,18 +1523,20 @@
   }
 
   /* ---------- Agregar a mi celular ---------- */
-  // Android: el navegador avisa que se puede instalar y el botón abre su cartel; el usuario solo confirma.
+  // Android: si el navegador avisa que se puede instalar, el botón abre su cartel y el usuario solo confirma;
+  // si todavía no avisó (o es otro navegador), muestra los pasos del menú ⋮.
   // iPhone: Apple no deja abrir "Agregar a inicio" desde una web, así que el botón muestra los dos pasos.
   // No aparece si ya se abrió desde el ícono, en la compu ni en navegadores internos (WhatsApp, Instagram…).
   const INSTALL_KEY = 'vj_aviso_app';
   const UA = navigator.userAgent;
   const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IS_ANDROID = /Android/i.test(UA);
   const IN_APP_BROWSER = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/.test(UA);
   let installPrompt = null;
   const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
   function renderInstall() {
-    const can = !isInstalled() && !IN_APP_BROWSER && (IS_IOS || !!installPrompt);
+    const can = !isInstalled() && !IN_APP_BROWSER && (IS_IOS || IS_ANDROID || !!installPrompt);
     let off = false;
     try { off = localStorage.getItem(INSTALL_KEY) === 'off'; } catch (e) { /* noop */ }
     $('#btnInstallMenu').hidden = !can;
@@ -1550,7 +1552,11 @@
       renderInstall();
       return;
     }
-    if (IS_IOS) {
+    if (IS_IOS || IS_ANDROID) {
+      $('#installTitle').textContent = IS_IOS ? 'Agregala a tu iPhone' : 'Agregala a tu celular';
+      $('#installLead').textContent = IS_IOS ? 'Apple no deja que una web lo haga sola: son dos toques en el navegador.' : 'Son dos toques desde el menú del navegador:';
+      $('#installStepsIOS').hidden = !IS_IOS;
+      $('#installStepsAndroid').hidden = IS_IOS;
       openDialog($('#installBackdrop'));
       setTimeout(() => $('#btnInstallOk').focus(), 60);
     }
@@ -1571,6 +1577,7 @@
     $('#btnCloseInstall').addEventListener('click', closeInstall);
     $('#btnInstallOk').addEventListener('click', closeInstall);
     $('#installBackdrop').addEventListener('click', e => { if (e.target.id === 'installBackdrop') closeInstall(); });
+    if (IS_ANDROID && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e));
     renderInstall();
   }
 

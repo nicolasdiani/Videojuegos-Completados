@@ -1142,7 +1142,7 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         if ($('#confirmBackdrop').classList.contains('open')) { closeConfirm(); return; }
-        closeModal(); closeSettings(); closeTop10();
+        closeModal(); closeSettings(); closeTop10(); closeInstall();
       }
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && $('#modalBackdrop').classList.contains('open')) saveFromModal();
     });
@@ -1522,6 +1522,58 @@
     });
   }
 
+  /* ---------- Agregar a mi celular ---------- */
+  // Android: el navegador avisa que se puede instalar y el botón abre su cartel; el usuario solo confirma.
+  // iPhone: Apple no deja abrir "Agregar a inicio" desde una web, así que el botón muestra los dos pasos.
+  // No aparece si ya se abrió desde el ícono, en la compu ni en navegadores internos (WhatsApp, Instagram…).
+  const INSTALL_KEY = 'vj_aviso_app';
+  const UA = navigator.userAgent;
+  const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IN_APP_BROWSER = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/.test(UA);
+  let installPrompt = null;
+  const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+  function renderInstall() {
+    const can = !isInstalled() && !IN_APP_BROWSER && (IS_IOS || !!installPrompt);
+    let off = false;
+    try { off = localStorage.getItem(INSTALL_KEY) === 'off'; } catch (e) { /* noop */ }
+    $('#btnInstallMenu').hidden = !can;
+    $('#installBanner').hidden = !can || off;
+  }
+  async function startInstall() {
+    toggleUserMenu(false);
+    if (installPrompt) {
+      const ev = installPrompt;
+      installPrompt = null; // el cartel se puede mostrar una sola vez; si lo cancela, el navegador vuelve a avisar
+      ev.prompt();
+      try { await ev.userChoice; } catch (e) { /* noop */ }
+      renderInstall();
+      return;
+    }
+    if (IS_IOS) {
+      openDialog($('#installBackdrop'));
+      setTimeout(() => $('#btnInstallOk').focus(), 60);
+    }
+  }
+  function closeInstall() { closeDialog($('#installBackdrop')); }
+
+  function bindInstall() {
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; renderInstall(); });
+    window.addEventListener('appinstalled', () => { installPrompt = null; renderInstall(); toast('¡Listo! Ya la tenés en tu inicio'); });
+    $('#btnInstallBanner').addEventListener('click', startInstall);
+    $('#btnInstallMenu').addEventListener('click', startInstall);
+    $('#btnInstallClose').addEventListener('click', () => {
+      try { localStorage.setItem(INSTALL_KEY, 'off'); } catch (e) { /* noop */ }
+      renderInstall();
+      $('#btnUser').focus();
+      toast('Lo tenés en el menú de tu cuenta');
+    });
+    $('#btnCloseInstall').addEventListener('click', closeInstall);
+    $('#btnInstallOk').addEventListener('click', closeInstall);
+    $('#installBackdrop').addEventListener('click', e => { if (e.target.id === 'installBackdrop') closeInstall(); });
+    renderInstall();
+  }
+
   /* ---------- init ---------- */
   async function init() {
     let theme = 'light';
@@ -1529,6 +1581,7 @@
     applyTheme(theme);
     bind();
     bindAccount();
+    bindInstall();
     let saved = 'done';
     try { saved = localStorage.getItem(SECTION_KEY) || 'done'; } catch (e) { /* noop */ }
     setSection(saved, true);

@@ -40,6 +40,10 @@ herramientas/              exportar los datos de la versión anterior (localStor
   Si se borra el completado, vuelve a donde estaba (Jugando o Wishlist).
 - **Carátulas subidas:** se reducen a 800px (JPEG) en el navegador y se suben al bucket `covers/<user_id>/`.
 - **Tema claro/oscuro:** preferencia local del navegador.
+- **Agregar a mi celular:** aviso debajo del encabezado (se puede cerrar) y opción fija en el menú de la cuenta.
+  En Android usa `manifest-app.webmanifest` (modo app) y el botón abre el cartel "Instalar" del navegador.
+  En iPhone Apple no permite abrir "Agregar a inicio" desde una web: el botón muestra los dos pasos y el
+  manifest sigue en modo navegador (en modo app el login de Google falla).
 
 ## Correr en local
 

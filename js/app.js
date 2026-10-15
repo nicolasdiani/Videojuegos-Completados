@@ -200,6 +200,7 @@
     $('#autofillBadge').hidden = false;
     setHint('');
     hideAc();
+    renderDupHint();
   }
 
   function showAutofillInfo(g) {
@@ -782,6 +783,7 @@
     syncCoverPreview();
     renderMcField();
     $('#btnDelete').style.display = editingId ? 'inline-flex' : 'none';
+    renderDupHint();
     openDialog($('#modalBackdrop'));
   }
 
@@ -906,10 +908,57 @@
     }
   }
 
+  /* ---------- sin repetidos entre secciones ---------- */
+  // Cada juego está en una sola sección. Al añadir (o renombrar) se busca el título sin mayúsculas, acentos ni signos:
+  // - si está más atrás en el camino (Wishlist → Jugando → Completados), se pasa a esta sección en vez de duplicarlo;
+  // - si ya está acá o más adelante, no se guarda y se ofrece abrirlo.
+  const SECTION_NAME = { wish: 'la Wishlist', play: 'Jugando', done: 'Completados' };
+  const FLOW = { wish: 0, play: 1, done: 2 };
+  function findExisting(title, skipIds) {
+    const key = looseKey(title);
+    if (!key) return null;
+    const g = games.find(x => !skipIds.includes(x.id) && looseKey(x.title) === key);
+    if (g) return { where: 'done', item: g };
+    const w = wishlist.find(x => !x.completedGameId && !skipIds.includes(x.id) && looseKey(x.title) === key);
+    if (w) return { where: w.status === 'jugando' ? 'play' : 'wish', item: w };
+    return null;
+  }
+  function dupCheck() {
+    const skip = [editingId, completingWish && completingWish.id].filter(Boolean);
+    const found = findExisting($('#f_title').value, skip);
+    if (!found) return null;
+    const move = !editingId && !completingWish && FLOW[found.where] < FLOW[modalMode];
+    return { ...found, action: move ? 'move' : 'block' };
+  }
+  function renderDupHint() {
+    const el = $('#dupHint');
+    const d = dupCheck();
+    el.hidden = !d;
+    if (!d) { el.innerHTML = ''; return; }
+    el.className = 'dup-hint ' + d.action;
+    el.innerHTML = d.action === 'move'
+      ? `Ya está en ${SECTION_NAME[d.where]}: al guardar pasa a ${SECTION_NAME[modalMode]}, sin duplicarse.`
+      : `Ya está en ${SECTION_NAME[d.where]}, no se va a duplicar. <button type="button" class="link" id="btnDupOpen">Abrirlo</button>`;
+  }
+  function openExisting(d) {
+    closeModal();
+    setSection(d.where);
+    if (d.where === 'done') openModal(d.item.id);
+    else if (d.where === 'play') openPlayModal(d.item.id);
+    else openWishModal(d.item.id);
+  }
+
   async function saveFromModal() {
     if (saving) return;
     const title = $('#f_title').value.trim();
     if (!title) { $('#f_title').focus(); toast('Pon un título'); return; }
+    const dup = dupCheck();
+    if (dup && dup.action === 'block') {
+      renderDupHint();
+      $('#f_title').focus();
+      toast(`Ya está en ${SECTION_NAME[dup.where]}, no se duplica`);
+      return;
+    }
     const common = {
       title,
       platform: $('#f_platform').value,
@@ -931,6 +980,14 @@
         };
 
     const ctx = { mode: modalMode, editingId, completingWish };
+    if (dup) {
+      // se pasa el que ya existía: mantiene su nombre y lo que el formulario deja vacío
+      data.title = dup.item.title;
+      for (const k of ['cover', 'mc', 'note', 'rawgSlug', 'releaseYear']) if (!data[k] && dup.item[k]) data[k] = dup.item[k];
+      if (!data.hours && dup.item.hours) data.hours = dup.item.hours;
+      if (ctx.mode === 'done') ctx.completingWish = dup.item;
+      else ctx.moveFrom = dup.item;
+    }
     saving = true;
     const btn = $('#btnSave');
     btn.disabled = true; btn.textContent = 'Guardando…';
@@ -987,6 +1044,11 @@
       wishlist[wishlist.indexOf(prev)] = saved;
       if (prev.cover !== saved.cover) dropCover(prev.cover, saved);
       toast(ctx.mode === 'play' ? 'Guardado' : 'Pendiente actualizado');
+    } else if (ctx.moveFrom) {
+      const w = ctx.moveFrom;
+      const saved = await DB.updateWish(w.id, { ...w, ...data, startedAt: w.startedAt || new Date().toISOString() });
+      wishlist[wishlist.indexOf(w)] = saved;
+      toast('Lo pasé de la Wishlist a Jugando');
     } else if (ctx.mode === 'play') {
       wishlist.push(await DB.insertWish({ ...data, startedAt: new Date().toISOString() }));
       toast('¡A jugar! Está en Jugando');
@@ -1132,6 +1194,7 @@
 
     // modal
     $('#btnSave').addEventListener('click', saveFromModal);
+    $('#dupHint').addEventListener('click', e => { if (e.target.closest('#btnDupOpen')) { const d = dupCheck(); if (d) openExisting(d); } });
     $('#btnCancel').addEventListener('click', closeModal);
     $('#btnClose').addEventListener('click', closeModal);
     $('#btnDelete').addEventListener('click', deleteCurrent);
@@ -1152,6 +1215,7 @@
     $('#f_cover').addEventListener('input', () => { clearPendingCover(); syncCoverPreview(); });
     $('#f_title').addEventListener('input', () => {
       onTitleInput();
+      renderDupHint();
       if (!$('#f_cover').value.trim()) syncCoverPreview();
     });
     // navegación con teclado en el autocompletado

@@ -1240,6 +1240,39 @@ body[data-section="play"] {
 .form-top .autocomplete { top: calc(100% + 6px); }
 .modal .autofill-info { margin: 0 0 12px; }
 
+/* celular: mientras se escribe el nombre, la búsqueda ocupa la pantalla visible (arriba del teclado) */
+.search-back { display: none; }
+#modalBackdrop.searching { display: block; padding: 0; }
+#modalBackdrop.searching .modal {
+  position: fixed; left: 0; right: 0; top: var(--vvtop, 0px); height: var(--vvh, 100dvh);
+  max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; transform: none;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#modalBackdrop.searching .modal-head,
+#modalBackdrop.searching .modal-foot,
+#modalBackdrop.searching .modal-body > :not(.form-top),
+#modalBackdrop.searching .cover-preview,
+#modalBackdrop.searching .field-search > label,
+#modalBackdrop.searching #mcField,
+#modalBackdrop.searching .dup-hint { display: none !important; }
+#modalBackdrop.searching .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 12px 0; }
+#modalBackdrop.searching .form-top { flex: 1; min-height: 0; flex-direction: column; align-items: stretch; gap: 0; margin: 0; }
+#modalBackdrop.searching .field-search { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#modalBackdrop.searching .search-back {
+  display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 12px;
+  border: 2.5px solid var(--line); background: var(--paper); color: var(--text); cursor: pointer;
+}
+#modalBackdrop.searching .search-input-wrap { flex: 1; min-width: 0; }
+#modalBackdrop.searching .field-search .hint { flex-basis: 100%; margin-top: 0; }
+#modalBackdrop.searching .form-top .autocomplete {
+  position: static; flex: 0 1 auto; min-height: 0; max-height: none; margin: 10px 0 12px; box-shadow: none;
+}
+#modalBackdrop.searching .ac-item { padding: 7px 12px; gap: 10px; }
+#modalBackdrop.searching .ac-thumb { width: 64px; height: 36px; border-radius: 6px; }
+#modalBackdrop.searching .ac-name { font-size: 14px; }
+#modalBackdrop.searching .ac-sub { font-size: 11.5px; margin-top: 1px; }
+#modalBackdrop.searching .ac-mc { font-size: 14px; padding: 3px 8px; }
+
 /* horas y nota: dos cajas iguales */
 .score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .score-row .field { margin-bottom: 8px; }

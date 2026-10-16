@@ -122,6 +122,23 @@
   let modalExtra = {}; // mc, rawgSlug, releaseYear del juego (guardados o del autofill)
   let extraFromAutofill = false; // true si modalExtra salió de elegir un resultado de RAWG
 
+  /* celular: con el teclado abierto la lista quedaba tapada; al escribir el nombre la búsqueda ocupa
+     la pantalla visible (campo arriba, resultados hasta el teclado). Elegir un juego, tocar ← o cerrar
+     el teclado vuelve al formulario con lo escrito. */
+  const SEARCH_MQ = matchMedia('(max-width: 640px) and (pointer: coarse)');
+  function fitSearch() {
+    const vv = window.visualViewport, bd = $('#modalBackdrop');
+    bd.style.setProperty('--vvh', (vv ? vv.height : innerHeight) + 'px');
+    bd.style.setProperty('--vvtop', (vv ? vv.offsetTop : 0) + 'px');
+  }
+  function enterSearch() {
+    const bd = $('#modalBackdrop');
+    if (!SEARCH_MQ.matches || bd.classList.contains('searching')) return;
+    fitSearch();
+    bd.classList.add('searching');
+  }
+  function exitSearch() { $('#modalBackdrop').classList.remove('searching'); }
+
   function hideAc() { const d = $('#acDropdown'); d.hidden = true; d.innerHTML = ''; acActive = -1; }
 
   function setHint(html) { $('#acHint').innerHTML = html || ''; }
@@ -201,6 +218,7 @@
     setHint('');
     hideAc();
     renderDupHint();
+    if ($('#modalBackdrop').classList.contains('searching')) { $('#f_title').blur(); exitSearch(); }
   }
 
   function showAutofillInfo(g) {
@@ -865,6 +883,7 @@
   }
 
   function closeModal() {
+    exitSearch();
     closeDialog($('#modalBackdrop'));
     editingId = null; completingWish = null;
     clearPendingCover(); acSeq++;
@@ -1215,6 +1234,7 @@
     $('#f_cover').addEventListener('input', () => { clearPendingCover(); syncCoverPreview(); });
     $('#f_title').addEventListener('input', () => {
       onTitleInput();
+      if ($('#f_title').value.trim().length >= 2) enterSearch();
       renderDupHint();
       if (!$('#f_cover').value.trim()) syncCoverPreview();
     });
@@ -1227,7 +1247,17 @@
       else return;
       items.forEach((it, i) => it.classList.toggle('active', i === acActive));
     });
-    $('#f_title').addEventListener('blur', () => setTimeout(hideAc, 150));
+    $('#f_title').addEventListener('blur', () => setTimeout(() => { hideAc(); exitSearch(); }, 150));
+    $('#f_title').addEventListener('keydown', e => {
+      // "Ir" del teclado sin un resultado marcado: se queda con lo escrito
+      if (e.key === 'Enter' && acActive < 0 && $('#modalBackdrop').classList.contains('searching')) { e.preventDefault(); $('#f_title').blur(); exitSearch(); hideAc(); }
+    });
+    $('#btnSearchBack').addEventListener('click', () => { $('#f_title').blur(); exitSearch(); hideAc(); });
+    if (window.visualViewport) {
+      const refit = () => { if ($('#modalBackdrop').classList.contains('searching')) fitSearch(); };
+      visualViewport.addEventListener('resize', refit);
+      visualViewport.addEventListener('scroll', refit);
+    }
 
     // ajustes (admin): invitados
     $('#btnSettings').addEventListener('click', openSettings);

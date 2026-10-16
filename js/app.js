@@ -686,14 +686,26 @@
   function closeTop10() { closeDialog($('#top10Backdrop')); }
 
   /* ---------- secciones ---------- */
+  // búsqueda y filtros vuelven a cero (al tocar "Restablecer" o al cambiar de pestaña)
+  function resetFilters() {
+    filters.q = ''; filters.platform = 'all'; filters.rating = 'all'; filters.priority = 'all';
+    activeYear = 'all';
+    $('#searchInput').value = '';
+    $('#filterPlatform').value = 'all';
+    $('#filterRating').value = 'all';
+    $('#filterPriority').value = 'all';
+    $('#filterYear').value = 'all';
+  }
+
   function setSection(next, silent) {
+    const prev = section;
     section = ['wish', 'play'].includes(next) ? next : 'done';
     try { localStorage.setItem(SECTION_KEY, section); } catch (e) { /* noop */ }
     document.body.dataset.section = section;
     $('#tabDone').setAttribute('aria-selected', String(section === 'done'));
     $('#tabPlay').setAttribute('aria-selected', String(section === 'play'));
     $('#tabWish').setAttribute('aria-selected', String(section === 'wish'));
-    filters.platform = 'all';
+    if (section !== prev) resetFilters();
     renderMarquee();
     if (!silent) renderAll();
   }
@@ -1152,13 +1164,7 @@
     $$('.section-tab').forEach(t => t.addEventListener('click', () => { if (t.dataset.section !== section) setSection(t.dataset.section); }));
 
     $('#btnReset').addEventListener('click', () => {
-      filters.q = ''; filters.platform = 'all'; filters.rating = 'all'; filters.priority = 'all';
-      activeYear = 'all';
-      $('#searchInput').value = '';
-      $('#filterPlatform').value = 'all';
-      $('#filterRating').value = 'all';
-      $('#filterPriority').value = 'all';
-      $('#filterYear').value = 'all';
+      resetFilters();
       renderAll();
       toast('Filtros restablecidos');
     });

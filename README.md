@@ -2,7 +2,7 @@
 
 Registro de videojuegos terminados (nota, horas, plataforma, año, carátula y comentario) , juegos en curso y wishlist de pendientes.
 Cada usuario tiene su propia lista en la nube; se entra con Google y solo por invitación.
-Autocompletado de datos con la API de [IGDB](https://api-docs.igdb.com/) (todas las plataformas).
+Autocompletado de datos con la API de [RAWG](https://rawg.io/apidocs).
 
 Origen: export de Claude Design (`Videojuegos completados (para enviar).html`), desempaquetado el 2026-09-29.
 Se quitó el panel de "Tweaks" (React + Babel), que solo funcionaba dentro del editor de Claude Design.
@@ -15,13 +15,13 @@ Se quitó el panel de "Tweaks" (React + Babel), que solo funcionaba dentro del e
 index.html                 marcado de la app (incluye la pantalla de acceso)
 css/styles.css             estilos (sistema "candy / neo-brutalista", tema claro/oscuro)
 js/config.js               URL y anon key de Supabase
-js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invitados, búsqueda IGDB
+js/db.js                   acceso a Supabase: sesión, juegos, carátulas, invitados, búsqueda RAWG
 js/app.js                  lógica de la interfaz (JS vanilla)
 fonts/                     Anton + Archivo (woff2, servidas localmente)
 privacidad.html            política de privacidad y condiciones (la pide Google OAuth)
 supabase/migrations/       cambios de base para proyectos ya creados (002: wishlist, 003: jugando)
 supabase/schema.sql        tablas, reglas de acceso (RLS), hook de invitados, bucket de carátulas
-supabase/functions/        Edge Function rawg-search (búsqueda en IGDB con credenciales como secreto)
+supabase/functions/        Edge Function rawg-search (búsqueda con la clave como secreto)
 herramientas/              exportar los datos de la versión anterior (localStorage)
 ```
 
@@ -30,8 +30,8 @@ herramientas/              exportar los datos de la versión anterior (localStor
 - **Acceso:** login con Google (Supabase Auth). Solo entran los emails de `allowed_emails`;
   el hook `hook_before_user_created` bloquea el registro del resto y las reglas RLS bloquean sus datos.
 - **Admin:** los emails de la tabla `admins` ven el engranaje para gestionar invitados.
-- **Autocompletado:** la app llama a la Edge Function `rawg-search`, que busca en IGDB con los secretos
-  `IGDB_CLIENT_ID` e `IGDB_CLIENT_SECRET`; nunca llegan al navegador y la función solo responde a invitados.
+- **Autocompletado:** la app llama a la Edge Function `rawg-search`, que busca en RAWG con el secreto
+  `RAWG_KEY`; la clave nunca llega al navegador y la función solo responde a invitados.
 - **Juegos:** tabla `games`, cada fila con `user_id`; cada usuario solo ve y edita los suyos.
 - **Wishlist:** tabla `wishlist` con prioridad (`alta` = "Muchas ganas", `normal` = "Algún día"). Al completar un pendiente se crea
   el juego en `games` y el pendiente queda enlazado (`completed_game_id`); si se borra ese juego, vuelve a pendiente.

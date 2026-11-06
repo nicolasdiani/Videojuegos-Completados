@@ -66,19 +66,21 @@ La anon key es pública por diseño (va en el navegador); lo que protege los dat
 1. Abre la web → **Entrar con Google** con tu Gmail.
 2. Engranaje (solo lo ve el admin) → **Invitados**: agrega los emails de tus amigos.
 
-## 7b. Autocompletado (IGDB) — una sola vez
+## 7b. Autocompletado (RAWG) — una sola vez
 
-La búsqueda usa IGDB (Twitch), que cubre todas las plataformas. Las credenciales viven como secretos en Supabase
-y las usa la función `rawg-search`; nunca llegan al navegador ni se piden en la app. La función conserva ese nombre.
+La clave de RAWG vive como secreto en Supabase y la usa la función `rawg-search`; nunca llega al navegador
+ni se pide en la app. Las claves de RAWG no vencen.
 
-1. Con una cuenta de Twitch con verificación en dos pasos, entra a https://dev.twitch.tv/console/apps → **Register Your Application**:
-   - Name: un nombre único · OAuth Redirect URLs: `http://localhost` · Category: *Application Integration* · Client Type: *Confidential*.
-2. Abre la app, copia el **Client ID** y genera un **Client Secret** con **New Secret**.
-3. En Supabase → **Edge Functions → Secrets**, agrega `IGDB_CLIENT_ID` e `IGDB_CLIENT_SECRET`.
-4. **Edge Functions → rawg-search → Code**: pega todo [`supabase/functions/rawg-search/index.ts`](supabase/functions/rawg-search/index.ts) → **Deploy**.
-   En *Details*, **Verify JWT** queda desactivado (la función valida la sesión y el invitado por su cuenta).
+1. Saca tu clave gratis en https://rawg.io/apidocs (cuenta → *Get API key*).
+2. **Guardar el secreto**: Supabase → **Edge Functions → Secrets** → *Add new secret*
+   - Name: `RAWG_KEY` · Value: tu clave → **Save**.
+3. **Crear la función**: Supabase → **Edge Functions → Deploy a new function → Via Editor**
+   - Nombre: `rawg-search`
+   - Borra el código de ejemplo, pega todo [`supabase/functions/rawg-search/index.ts`](supabase/functions/rawg-search/index.ts) → **Deploy**.
+4. En la función → **Details / Settings**: desactiva **Verify JWT with legacy secret** y guarda.
+   (La función ya comprueba sola que quien llama esté logueado e invitado.)
 
-Para cambiar las credenciales: edita los dos secretos. No hace falta volver a publicar.
+Para cambiar la clave en el futuro: solo editas el secreto `RAWG_KEY`.
 
 ## 7c. Wishlist (si creaste el proyecto antes del 30/09/2026)
 

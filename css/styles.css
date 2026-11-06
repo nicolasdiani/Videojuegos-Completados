@@ -1268,7 +1268,7 @@ body[data-section="play"] {
   position: static; flex: 0 1 auto; min-height: 0; max-height: none; margin: 10px 0 12px; box-shadow: none;
 }
 #modalBackdrop.searching .ac-item { padding: 7px 12px; gap: 10px; }
-#modalBackdrop.searching .ac-thumb { width: 64px; height: 36px; border-radius: 6px; }
+#modalBackdrop.searching .ac-thumb { width: 34px; height: 45px; border-radius: 6px; }
 #modalBackdrop.searching .ac-name { font-size: 14px; }
 #modalBackdrop.searching .ac-sub { font-size: 11.5px; margin-top: 1px; }
 #modalBackdrop.searching .ac-mc { font-size: 14px; padding: 3px 8px; }

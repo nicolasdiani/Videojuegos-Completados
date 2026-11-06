@@ -99,28 +99,28 @@
   }
 
   /* ============================================================
-     RAWG — base de datos de videojuegos (autocompletado)
+     IGDB — base de datos de videojuegos (autocompletado)
      ============================================================ */
-  // La búsqueda pasa por la Edge Function "rawg-search" (la clave de RAWG vive en Supabase).
+  // La búsqueda pasa por la Edge Function "rawg-search" (las credenciales de IGDB viven en Supabase).
 
-  // mapea nombres de plataforma de RAWG a nuestra lista
-  const RAWG_PLAT = [
+  // mapea nombres de plataforma de IGDB a nuestra lista
+  const GAME_PLAT = [
     ['PlayStation 5', 'PS5'], ['PlayStation 4', 'PS4'],
     ['Nintendo Switch 2', 'Switch 2'], ['Nintendo Switch', 'Switch'],
     ['Xbox Series', 'Xbox Series'], ['Xbox One', 'Xbox One'],
-    ['PC', 'PC'], ['macOS', 'PC'], ['Linux', 'PC'],
+    ['PC (Microsoft', 'PC'], ['Mac', 'PC'], ['Linux', 'PC'],
     ['iOS', 'Móvil'], ['Android', 'Móvil'], ['Nintendo 3DS', 'Nintendo 3DS']
   ];
   function mapPlatform(platforms) {
     if (!platforms || !platforms.length) return null;
     const names = platforms.map(p => (p.platform && p.platform.name) || '').join(' | ');
-    for (const [needle, ours] of RAWG_PLAT) if (names.includes(needle)) return ours;
+    for (const [needle, ours] of GAME_PLAT) if (names.includes(needle)) return ours;
     return null;
   }
 
   let acTimer = null, acSeq = 0, acResults = [], acActive = -1;
   let modalExtra = {}; // mc, rawgSlug, releaseYear del juego (guardados o del autofill)
-  let extraFromAutofill = false; // true si modalExtra salió de elegir un resultado de RAWG
+  let extraFromAutofill = false; // true si modalExtra salió de elegir un resultado del buscador
 
   /* celular: con el teclado abierto la lista quedaba tapada; al escribir el nombre la búsqueda ocupa
      la pantalla visible (campo arriba, resultados hasta el teclado). Elegir un juego, tocar ← o cerrar
@@ -148,7 +148,7 @@
     $('#autofillInfo').hidden = true;
     // si el dato venía de un resultado elegido y el título cambió, ya no corresponde a este juego;
     // si venía guardado (editar), corregir el título no lo borra
-    if (extraFromAutofill) { modalExtra = {}; extraFromAutofill = false; renderMcField(); }
+    if (extraFromAutofill) { modalExtra = {}; extraFromAutofill = false; $('#f_cover').value = ''; syncCoverPreview(); renderMcField(); }
     clearTimeout(acTimer);
     const q = $('#f_title').value.trim();
     setHint('');
@@ -224,7 +224,7 @@
   function showAutofillInfo(g) {
     const bits = [];
     if (g.released) bits.push(`<span>Lanzado <b>${(g.released || '').slice(0, 4)}</b></span>`);
-    if (g.metacritic) bits.push(`<span>Metacritic <b>${g.metacritic}</b></span>`);
+    if (g.metacritic) bits.push(`<span>Críticas <b>${g.metacritic}</b></span>`);
     if (g.playtime) bits.push(`<span>~<b>${g.playtime}h</b> de media</span>`);
     const el = $('#autofillInfo');
     el.innerHTML = bits.join('');

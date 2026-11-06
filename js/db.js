@@ -188,7 +188,7 @@
       await sb.storage.from(BUCKET).remove([path]); // si falla queda un archivo huérfano, no es grave
     },
 
-    /* ---------- búsqueda en RAWG (Edge Function con la clave como secreto) ---------- */
+    /* ---------- búsqueda en IGDB (Edge Function con las credenciales como secreto) ---------- */
     async searchGames(q) {
       const { data, error } = await sb.functions.invoke('rawg-search', { body: { q } });
       if (error) throw error;
